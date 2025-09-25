@@ -1,0 +1,5 @@
+{% extends 'tienda/base.html' %}
+{% block content %}
+<div class="alert alert-danger">{{ mensaje }}</div>
+<a href="{% url 'lista_productos' %}" class="btn btn-secondary">Volver</a>
+{% endblock %}
