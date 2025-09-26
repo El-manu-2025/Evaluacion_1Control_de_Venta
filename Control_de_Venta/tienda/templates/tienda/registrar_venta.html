@@ -1,11 +1,13 @@
+<!-- Hereda la estructura base -->
 {% extends 'tienda/base.html' %}
 {% block content %}
 <h2 class="text-2xl font-bold mb-4">Registrar Venta</h2>
 
+<!-- Formulario para registrar una venta -->
 <form method="post" class="space-y-4">
     {% csrf_token %}
 
-    <!-- Cliente -->
+    <!-- Datos del cliente -->
     <div>
         <label class="block">RUT Cliente:</label>
         <input type="text" name="rut" class="border border-gray-300 p-2 w-full" required>
@@ -16,6 +18,7 @@
         <label for="habitual">Cliente Habitual</label>
     </div>
 
+    <!-- Campos adicionales para cliente habitual (nombre y correo) -->
     <div id="datos_cliente" style="display: none;">
         <label class="block">Nombre:</label>
         <input type="text" name="nombre" class="border border-gray-300 p-2 w-full">
@@ -24,7 +27,7 @@
         <input type="email" name="correo" class="border border-gray-300 p-2 w-full">
     </div>
 
-    <!-- Producto -->
+    <!-- Selección del producto a vender -->
     <div>
         <label class="block">Producto:</label>
         <select name="codigo" class="border border-gray-300 p-2 w-full" required>
@@ -34,6 +37,7 @@
         </select>
     </div>
 
+    <!-- Cantidad de productos a vender -->
     <div>
         <label class="block">Cantidad:</label>
         <input type="number" name="cantidad" min="1" value="1" class="border border-gray-300 p-2 w-full" required>
@@ -42,8 +46,10 @@
     <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Registrar venta</button>
 </form>
 
+<!-- Enlace para volver a la lista de productos -->
 <a href="{% url 'lista_productos' %}" class="text-blue-500 mt-4 inline-block">⬅ Volver a productos</a>
 
+<!-- Script para mostrar/ocultar datos adicionales del cliente habitual -->
 <script>
     document.getElementById('habitual').addEventListener('change', function () {
         document.getElementById('datos_cliente').style.display = this.checked ? 'block' : 'none';

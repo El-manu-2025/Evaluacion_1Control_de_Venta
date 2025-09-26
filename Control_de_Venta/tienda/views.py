@@ -1,26 +1,35 @@
+# Importaciones necesarias de Django y modelos propios
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
 from django.db.models import Sum
 from django.contrib import messages
 from .models import Producto, Cliente, Venta
 
-# LISTAR
+
+# Vista para listar todos los productos
 def lista_productos(request):
     productos = Producto.objects.all()
     return render(request, 'tienda/lista_productos.html', {'productos': productos})
 
-# RESUMEN VENTAS
+
+# Vista para mostrar el resumen de ventas, con filtro por fechas
 def resumen_ventas(request):
     from django.utils.dateparse import parse_date
+    # Obtiene todas las ventas, ordenadas por fecha descendente
     ventas_qs = Venta.objects.select_related('cliente', 'producto').order_by('-fecha')
+    # Obtiene los parámetros de filtro de fecha desde la URL
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
     ventas = ventas_qs
+    # Aplica filtro por fecha de inicio si corresponde
     if fecha_inicio:
         ventas = ventas.filter(fecha__date__gte=fecha_inicio)
+    # Aplica filtro por fecha de fin si corresponde
     if fecha_fin:
         ventas = ventas.filter(fecha__date__lte=fecha_fin)
-    ventas = ventas[:20]  # últimas 20 o filtradas
+    # Limita a las últimas 20 ventas o las filtradas
+    ventas = ventas[:20]
+    # Calcula el total vendido en el periodo mostrado
     total = sum(v.total() for v in ventas)
 
     return render(request, 'tienda/resumen_ventas.html', {
@@ -30,14 +39,16 @@ def resumen_ventas(request):
         'fecha_inicio': fecha_inicio or '',
         'fecha_fin': fecha_fin or '',
     })
-# AGREGAR Y EDITAR  
+
+# Vista para agregar o editar un producto
 def agregar_producto(request):
     if request.method == 'POST':
+        # Obtiene los datos del formulario
         nombre = request.POST['nombre']
         codigo = request.POST['codigo']
         cantidad = int(request.POST['cantidad'] or 0)
         precio = float(request.POST['precio'] or 0)
-        # si viene id => actualizar
+        # Si viene un id de producto, se actualiza; si no, se crea uno nuevo
         producto_id = request.POST.get('producto_id')
         if producto_id:
             producto = get_object_or_404(Producto, id=producto_id)
@@ -56,36 +67,41 @@ def agregar_producto(request):
             messages.success(request, '✅ Producto agregado con éxito.')
         return redirect('lista_productos')
 
-    # GET
+    # Si es GET, muestra el formulario, y si hay id, carga el producto a editar
     producto_id = request.GET.get('id')
     context = {}
     if producto_id:
         context['producto'] = get_object_or_404(Producto, id=producto_id)
     return render(request, 'tienda/agregar_producto.html', context)
 
-# ELIMINAR
+
+# Vista para eliminar un producto por su id
 def eliminar_producto(request, id):
     producto = get_object_or_404(Producto, id=id)
     producto.delete()
     return redirect('lista_productos')
 
-# REGISTRAR VENTA
+
+# Vista para registrar una venta
 def registrar_venta(request):
     productos = Producto.objects.all()
     if request.method == 'POST':
+        # Obtiene los datos del formulario
         rut = request.POST['rut'].strip()
         nombre = request.POST.get('nombre', '').strip()
         habitual = request.POST.get('habitual') == 'on'
         codigo = request.POST['codigo']
         cantidad = int(request.POST['cantidad'] or 0)
 
+        # Busca el producto por su código
         producto = get_object_or_404(Producto, codigo=codigo)
 
-        # Validación de stock
+        # Valida que haya suficiente stock
         if producto.cantidad < cantidad:
             messages.error(request, '❌ No puedes vender más de lo que hay en stock.')
             return render(request, 'tienda/error.html', {'mensaje': 'Stock insuficiente'})
 
+        # Busca o crea el cliente
         cliente, creado = Cliente.objects.get_or_create(rut=rut)
         if habitual:
             cliente.habitual = True
@@ -93,6 +109,7 @@ def registrar_venta(request):
                 cliente.nombre = nombre
             cliente.save()
 
+        # Registra la venta y descuenta el stock
         Venta.objects.create(cliente=cliente, producto=producto, cantidad=cantidad)
         producto.cantidad -= cantidad
         producto.save()
@@ -100,4 +117,5 @@ def registrar_venta(request):
         messages.success(request, '✅ Venta registrada con éxito.')
         return redirect('lista_productos')
 
+    # Si es GET, muestra el formulario de venta
     return render(request, 'tienda/registrar_venta.html', {'productos': productos})

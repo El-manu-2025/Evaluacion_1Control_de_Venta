@@ -1,11 +1,15 @@
+<!-- Hereda la estructura base y carga filtros de humanize para formatear números -->
 {% extends 'tienda/base.html' %}
 {% load humanize %}
 {% block content %}
 
+
 <div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md mt-8">
+  <!-- Título principal del resumen de ventas -->
   <h2 class="text-3xl font-bold mb-8 text-indigo-700 text-center flex items-center justify-center gap-2">🧾 Resumen de Ventas</h2>
 
-  <!-- Formulario de filtro por fechas -->
+
+  <!-- Formulario para filtrar ventas por rango de fechas  -->
   <form method="get" class="flex flex-wrap gap-4 items-end mb-8 justify-center">
     <div>
       <label class="block text-gray-700 text-sm mb-1">Desde:</label>
@@ -16,40 +20,49 @@
       <input type="date" name="fecha_fin" value="{{ fecha_fin }}" class="border border-gray-300 rounded px-3 py-2">
     </div>
     <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded">Filtrar</button>
+    <!-- Enlace para limpiar el filtro si hay fechas seleccionadas  -->
     {% if fecha_inicio or fecha_fin %}
       <a href="{% url 'resumen_ventas' %}" class="ml-2 text-sm text-gray-500 hover:underline">Limpiar filtro</a>
     {% endif %}
   </form>
 
+
+  <!-- Tabla de ventas: muestra cada venta con sus datos principales  -->
   <div class="overflow-x-auto">
-    <table class="min-w-full bg-white rounded-lg shadow border border-gray-200">
-        <thead class="bg-indigo-600 text-white">
-            <tr>
-                <th class="py-3 px-4 text-left">Fecha</th>
-                <th class="py-3 px-4 text-left">Cliente</th>
-                <th class="py-3 px-4 text-left">Producto</th>
-                <th class="py-3 px-4 text-left">Cantidad</th>
-                <th class="py-3 px-4 text-left">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for venta in ventas %}
-            <tr class="border-b hover:bg-indigo-50">
-                <td class="py-2 px-4">{{ venta.fecha|date:"Y-m-d H:i" }}</td>
-                <td class="py-2 px-4">{{ venta.cliente.rut }}</td>
-                <td class="py-2 px-4">{{ venta.producto.nombre }}</td>
-                <td class="py-2 px-4">{{ venta.cantidad }}</td>
-                <td class="py-2 px-4">${{ venta.total|floatformat:2|intcomma }}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="5" class="py-4 text-center text-gray-500">No hay ventas registradas.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+  <table class="min-w-full bg-white rounded-lg shadow border border-gray-200">
+    <thead class="bg-indigo-600 text-white">
+      <tr>
+        <th class="py-3 px-4 text-left">Fecha</th>
+        <th class="py-3 px-4 text-left">Cliente</th>
+        <th class="py-3 px-4 text-left">Producto</th>
+        <th class="py-3 px-4 text-left">Cantidad</th>
+        <th class="py-3 px-4 text-left">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Itera sobre las ventas filtradas o recientes  -->
+      {% for venta in ventas %}
+      <tr class="border-b hover:bg-indigo-50">
+        <td class="py-2 px-4">{{ venta.fecha|date:"Y-m-d H:i" }}</td>
+        <td class="py-2 px-4">{{ venta.cliente.rut }}</td>
+        <td class="py-2 px-4">{{ venta.producto.nombre }}</td>
+        <td class="py-2 px-4">{{ venta.cantidad }}</td>
+        <!-- Formatea el total con dos decimales y separador de miles  -->
+        <td class="py-2 px-4">${{ venta.total|floatformat:2|intcomma }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-4 text-center text-gray-500">No hay ventas registradas.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
   </div>
 
+
+  <!-- Muestra el total vendido en el periodo filtrado o en las últimas ventas  -->
   <h3 class="mt-8 text-2xl font-bold text-green-700 text-center">Total vendido: ${{ total|floatformat:2|intcomma }}</h3>
 
+
+  <!-- Botón para volver a la lista de productos  -->
   <div class="flex justify-center mt-6">
     <a href="{% url 'lista_productos' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded transition duration-200">⬅ Volver al inicio</a>
   </div>

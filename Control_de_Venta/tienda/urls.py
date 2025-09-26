@@ -8,4 +8,3 @@ urlpatterns = [
     path('venta/', views.registrar_venta, name='registrar_venta'),
     path('resumen/', views.resumen_ventas, name='resumen_ventas'),
 ]
-# Control_de_Venta/tienda/urls.py

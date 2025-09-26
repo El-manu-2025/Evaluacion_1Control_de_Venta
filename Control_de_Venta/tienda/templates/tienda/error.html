@@ -1,5 +1,8 @@
+<!-- Hereda la estructura base -->
 {% extends 'tienda/base.html' %}
 {% block content %}
+<!-- Muestra un mensaje de error personalizado -->
 <div class="alert alert-danger">{{ mensaje }}</div>
+<!-- Enlace para volver a la lista de productos -->
 <a href="{% url 'lista_productos' %}" class="btn btn-secondary">Volver</a>
 {% endblock %}
