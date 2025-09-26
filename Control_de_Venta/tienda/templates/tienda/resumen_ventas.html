@@ -1,4 +1,5 @@
 {% extends 'tienda/base.html' %}
+{% load humanize %}
 {% block content %}
 
 <div class="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md mt-8">
@@ -38,7 +39,7 @@
                 <td class="py-2 px-4">{{ venta.cliente.rut }}</td>
                 <td class="py-2 px-4">{{ venta.producto.nombre }}</td>
                 <td class="py-2 px-4">{{ venta.cantidad }}</td>
-                <td class="py-2 px-4">${{ venta.total|floatformat:0 }}</td>
+                <td class="py-2 px-4">${{ venta.total|floatformat:2|intcomma }}</td>
             </tr>
             {% empty %}
             <tr><td colspan="5" class="py-4 text-center text-gray-500">No hay ventas registradas.</td></tr>
@@ -47,7 +48,7 @@
     </table>
   </div>
 
-  <h3 class="mt-8 text-2xl font-bold text-green-700 text-center">Total vendido: ${{ total|floatformat:0 }}</h3>
+  <h3 class="mt-8 text-2xl font-bold text-green-700 text-center">Total vendido: ${{ total|floatformat:2|intcomma }}</h3>
 
   <div class="flex justify-center mt-6">
     <a href="{% url 'lista_productos' %}" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded transition duration-200">⬅ Volver al inicio</a>
