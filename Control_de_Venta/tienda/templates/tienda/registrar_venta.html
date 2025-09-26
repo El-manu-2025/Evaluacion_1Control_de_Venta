@@ -1,0 +1,52 @@
+{% extends 'tienda/base.html' %}
+{% block content %}
+<h2 class="text-2xl font-bold mb-4">Registrar Venta</h2>
+
+<form method="post" class="space-y-4">
+    {% csrf_token %}
+
+    <!-- Cliente -->
+    <div>
+        <label class="block">RUT Cliente:</label>
+        <input type="text" name="rut" class="border border-gray-300 p-2 w-full" required>
+    </div>
+
+    <div>
+        <input type="checkbox" name="habitual" id="habitual" class="mr-2">
+        <label for="habitual">Cliente Habitual</label>
+    </div>
+
+    <div id="datos_cliente" style="display: none;">
+        <label class="block">Nombre:</label>
+        <input type="text" name="nombre" class="border border-gray-300 p-2 w-full">
+
+        <label class="block mt-2">Correo:</label>
+        <input type="email" name="correo" class="border border-gray-300 p-2 w-full">
+    </div>
+
+    <!-- Producto -->
+    <div>
+        <label class="block">Producto:</label>
+        <select name="codigo" class="border border-gray-300 p-2 w-full" required>
+            {% for prod in productos %}
+                <option value="{{ prod.codigo }}">{{ prod.nombre }} ({{ prod.codigo }}) - ${{ prod.precio }} — Stock: {{ prod.cantidad }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label class="block">Cantidad:</label>
+        <input type="number" name="cantidad" min="1" value="1" class="border border-gray-300 p-2 w-full" required>
+    </div>
+
+    <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded">Registrar venta</button>
+</form>
+
+<a href="{% url 'lista_productos' %}" class="text-blue-500 mt-4 inline-block">⬅ Volver a productos</a>
+
+<script>
+    document.getElementById('habitual').addEventListener('change', function () {
+        document.getElementById('datos_cliente').style.display = this.checked ? 'block' : 'none';
+    });
+</script>
+{% endblock %}

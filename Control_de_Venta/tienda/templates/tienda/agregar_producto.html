@@ -1,0 +1,26 @@
+{% extends 'tienda/base.html' %}
+{% block content %}
+<form method="post" class="max-w-lg mx-auto bg-white p-8 rounded-lg shadow-md mt-8">
+    {% csrf_token %}
+    <input type="hidden" name="producto_id" value="{{ producto.id|default:'' }}">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700 text-center">Agregar / Editar Producto</h2>
+    <div class="mb-4">
+        <label class="block text-gray-700 font-semibold mb-1">Nombre:</label>
+        <input type="text" name="nombre" value="{{ producto.nombre|default:'' }}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+    </div>
+    <div class="mb-4">
+        <label class="block text-gray-700 font-semibold mb-1">Código:</label>
+        <input type="text" name="codigo" value="{{ producto.codigo|default:'' }}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+    </div>
+    <div class="mb-4">
+        <label class="block text-gray-700 font-semibold mb-1">Cantidad:</label>
+        <input type="number" name="cantidad" value="{{ producto.cantidad|default:0 }}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
+    </div>
+    <div class="mb-6">
+        <label class="block text-gray-700 font-semibold mb-1">Precio:</label>
+        <input type="number" step="0.01" min="0" max="1000000" name="precio" value="{{ producto.precio|default:0 }}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400" required placeholder="Ej: 1000000.00" title="Máximo 1.000.000,00">
+        <span class="text-xs text-gray-500">Máximo: $1.000.000,00</span>
+    </div>
+    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded transition duration-200">Guardar</button>
+</form>
+{% endblock %}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Control de Ventas{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+    <!-- ✅ NAVBAR -->
+    <nav class="bg-indigo-700 text-white fixed w-full top-0 left-0 shadow z-50">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold">🧾 Control de Ventas</h1>
+            <div class="space-x-4">
+                <a href="{% url 'lista_productos' %}" class="hover:underline">Productos</a>
+                
+            </div>
+        </div>
+    </nav>
+
+    <!-- ✅ CONTENIDO -->
+    <main class="container mx-auto px-4 py-24">
+        {% if messages %}
+            <div class="mb-6">
+                {% for message in messages %}
+                    <div class="p-4 rounded bg-green-100 text-green-700 border border-green-300">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

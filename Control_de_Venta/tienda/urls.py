@@ -6,5 +6,6 @@ urlpatterns = [
     path('agregar/', views.agregar_producto, name='agregar_producto'),
     path('eliminar/<int:id>/', views.eliminar_producto, name='eliminar_producto'),
     path('venta/', views.registrar_venta, name='registrar_venta'),
+    path('resumen/', views.resumen_ventas, name='resumen_ventas'),
 ]
 # Control_de_Venta/tienda/urls.py

@@ -1,4 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.utils.timezone import now
+from django.db.models import Sum
+from django.contrib import messages
 from .models import Producto, Cliente, Venta
 
 # LISTAR
@@ -6,7 +9,28 @@ def lista_productos(request):
     productos = Producto.objects.all()
     return render(request, 'tienda/lista_productos.html', {'productos': productos})
 
-# AGREGAR (y editar usa mismo template)
+# RESUMEN VENTAS
+def resumen_ventas(request):
+    from django.utils.dateparse import parse_date
+    ventas_qs = Venta.objects.select_related('cliente', 'producto').order_by('-fecha')
+    fecha_inicio = request.GET.get('fecha_inicio')
+    fecha_fin = request.GET.get('fecha_fin')
+    ventas = ventas_qs
+    if fecha_inicio:
+        ventas = ventas.filter(fecha__date__gte=fecha_inicio)
+    if fecha_fin:
+        ventas = ventas.filter(fecha__date__lte=fecha_fin)
+    ventas = ventas[:20]  # últimas 20 o filtradas
+    total = sum(v.total() for v in ventas)
+
+    return render(request, 'tienda/resumen_ventas.html', {
+        'ventas': ventas,
+        'total': total,
+        'hoy': now().date(),
+        'fecha_inicio': fecha_inicio or '',
+        'fecha_fin': fecha_fin or '',
+    })
+# AGREGAR Y EDITAR  
 def agregar_producto(request):
     if request.method == 'POST':
         nombre = request.POST['nombre']
@@ -22,8 +46,14 @@ def agregar_producto(request):
             producto.cantidad = cantidad
             producto.precio = precio
             producto.save()
+
+            # Mensaje de actualización
+            messages.success(request, '✅ Producto actualizado con éxito.')
+
         else:
             Producto.objects.create(nombre=nombre, codigo=codigo, cantidad=cantidad, precio=precio)
+            # Mensaje de creación
+            messages.success(request, '✅ Producto agregado con éxito.')
         return redirect('lista_productos')
 
     # GET
@@ -53,6 +83,7 @@ def registrar_venta(request):
 
         # Validación de stock
         if producto.cantidad < cantidad:
+            messages.error(request, '❌ No puedes vender más de lo que hay en stock.')
             return render(request, 'tienda/error.html', {'mensaje': 'Stock insuficiente'})
 
         cliente, creado = Cliente.objects.get_or_create(rut=rut)
@@ -65,7 +96,8 @@ def registrar_venta(request):
         Venta.objects.create(cliente=cliente, producto=producto, cantidad=cantidad)
         producto.cantidad -= cantidad
         producto.save()
-
+        
+        messages.success(request, '✅ Venta registrada con éxito.')
         return redirect('lista_productos')
 
     return render(request, 'tienda/registrar_venta.html', {'productos': productos})
