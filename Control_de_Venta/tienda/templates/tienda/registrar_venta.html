@@ -10,7 +10,9 @@
     <!-- Datos del cliente -->
     <div>
         <label class="block">RUT Cliente:</label>
-        <input type="text" name="rut" class="border border-gray-300 p-2 w-full" required>
+        {# Input para RUT: solo dígitos, exactamente 10 caracteres #}
+    {# Acepta: 10 dígitos seguidos (2276090072) o formato con guion 8-dv (22760900-7). DV puede ser número o K #}
+    <input type="text" name="rut" class="border border-gray-300 p-2 w-full" required maxlength="12" pattern="(?:\d{10}|\d{8}-[0-9Kk])" title="Ingrese 10 dígitos seguidos o formato 8 dígitos + '-' + DV (num o K). Ej: 22760900-7">
     </div>
 
     <div>

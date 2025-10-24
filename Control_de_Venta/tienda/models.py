@@ -1,11 +1,21 @@
 
 # Importa el módulo de modelos de Django
 from django.db import models
+from django.core.validators import RegexValidator
 
 
 # Modelo que representa a un cliente
 class Cliente(models.Model):
-    rut = models.CharField(max_length=12, unique=True)  # RUT chileno, único
+    # Validador: acepta dos formatos validos:
+    # - 10 dígitos seguidos (ej. 2276090072)
+    # - 8 dígitos, guion y dígito verificador (numérico o K), ej. 22760900-7
+    rut_validator = RegexValidator(
+        regex=r'^(?:\d{10}|\d{8}-[0-9Kk])$',
+        message='El RUT debe ser 10 dígitos seguidos o 8 dígitos + "-" + dígito verificador (num o K).'
+    )
+
+    # RUT: se permite el guion opcional en el formato (se valida según rut_validator)
+    rut = models.CharField(max_length=12, unique=True, validators=[rut_validator])  # RUT chileno, único
     nombre = models.CharField(max_length=100, blank=True, null=True)  # Nombre opcional
     correo = models.EmailField(blank=True, null=True)  # Correo opcional
     habitual = models.BooleanField(default=False)  # Si es cliente habitual

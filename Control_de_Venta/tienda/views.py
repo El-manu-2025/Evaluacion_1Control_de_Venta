@@ -4,6 +4,7 @@ from django.utils.timezone import now
 from django.db.models import Sum
 from django.contrib import messages
 from .models import Producto, Cliente, Venta
+import re
 
 
 # Vista para listar todos los productos
@@ -88,6 +89,34 @@ def registrar_venta(request):
     if request.method == 'POST':
         # Obtiene los datos del formulario
         rut = request.POST['rut'].strip()
+        # Normaliza el RUT: elimina puntos y convierte a mayúsculas para la K
+        rut_raw = rut.replace('.', '').upper()
+
+        # Si recibe 9 o 10 dígitos sin guion, se puede considerar:
+        # - 10 dígitos seguidos: lo permitimos (ej. 2276090072)
+        # - 9 dígitos (8 + dv) sin guion: agregamos el guion
+        # Aceptamos también formato con guion (ej. 22760900-7)
+        # Quitar espacios
+        rut_raw = rut_raw.replace(' ', '')
+
+        # Si viene sin guion y tiene 9 o 10 caracteres, intentar formatear
+        if '-' not in rut_raw and len(rut_raw) in (9, 10):
+            # Si tiene 9 caracteres asumimos 8 + dv
+            if len(rut_raw) == 9:
+                rut_norm = rut_raw[:8] + '-' + rut_raw[8]
+            else:
+                # 10 dígitos: tomar los primeros 8, guion, resto como dv (si vienen 10 se considera 8+dv)
+                rut_norm = rut_raw[:8] + '-' + rut_raw[8:]
+        else:
+            rut_norm = rut_raw
+
+        # Validación final: acepta 10 dígitos seguidos o 8 dígitos + '-' + dv (num o K)
+        if not re.fullmatch(r'(?:\d{10}|\d{8}-[0-9K])', rut_norm):
+            messages.error(request, 'RUT inválido. Use 10 dígitos seguidos o formato 8 dígitos-VD (ej. 22760900-7).')
+            return render(request, 'tienda/registrar_venta.html', {'productos': productos})
+
+        # Usar rut_norm como valor estandarizado para buscar/crear cliente
+        rut = rut_norm
         nombre = request.POST.get('nombre', '').strip()
         habitual = request.POST.get('habitual') == 'on'
         codigo = request.POST['codigo']
