@@ -11,6 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+# importar credenciales de postgresql
+import os
+from dotenv import load_dotenv
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -70,10 +74,14 @@ WSGI_APPLICATION = 'Control_de_Venta.wsgi.application'
 
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": {
+    "ENGINE": "django.db.backends.postgresql",
+    "NAME": os.getenv("DBNAME"),
+    "USER": os.getenv("USER"),
+    "PASSWORD": os.getenv("PASSWORD"),
+    "HOST": os.getenv("HOST"),
+    "PORT": os.getenv("PORT"),
+    }    
 }
 
 
