@@ -3,7 +3,7 @@ services:
     name: control-de-venta
     env: python
     plan: free
-    rootDir: Control_de_Venta
+    rootDir: .
     buildCommand: |
       pip install -r requirements.txt && python Control_de_Venta/manage.py collectstatic --noinput
     startCommand: gunicorn Control_de_Venta.wsgi:application
