@@ -3,6 +3,7 @@ services:
     name: control-de-venta
     env: python
     plan: free
+    rootDir: Control_de_Venta
     buildCommand: |
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
