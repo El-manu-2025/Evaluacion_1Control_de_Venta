@@ -11,7 +11,7 @@ services:
       - key: DJANGO_SETTINGS_MODULE
         value: Control_de_Venta.settings
       - key: PYTHON_VERSION
-        value: 3.13.0
+        value: 3.11.9
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_KEY
