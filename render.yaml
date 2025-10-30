@@ -13,6 +13,11 @@ services:
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: Control_de_Venta.settings
+      # Ensure Python can import the inner project package when commands
+      # run with a different working directory during build/start.
+      - key: PYTHONPATH
+        # Render's project root during deploy is /opt/render/project/src
+        value: /opt/render/project/src/Control_de_Venta
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: DEBUG
