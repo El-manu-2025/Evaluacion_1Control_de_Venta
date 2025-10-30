@@ -5,13 +5,11 @@ services:
     plan: free
     rootDir: Control_de_Venta
     buildCommand: |
-      cd Control_de_Venta
-      pip install -r requirements.txt
-      python manage.py collectstatic --noinput
-    startCommand: cd Control_de_Venta && gunicorn Control_de_Venta.wsgi:application
+      pip install -r requirements.txt && python Control_de_Venta/manage.py collectstatic --noinput
+    startCommand: gunicorn Control_de_Venta.wsgi:application
     envVars:
       - key: DJANGO_SETTINGS_MODULE
-        value: evaluacion1.settings
+        value: Control_de_Venta.settings
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: SUPABASE_URL
