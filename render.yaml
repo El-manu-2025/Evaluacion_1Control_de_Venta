@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: control-de-venta
+    env: python
+    plan: free
+    buildCommand: |
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: gunicorn evaluacion1.wsgi:application
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: evaluacion1.settings
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: DEBUG
+        value: False
