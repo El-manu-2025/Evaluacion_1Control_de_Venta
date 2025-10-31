@@ -42,9 +42,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # The app is located at Control_de_Venta/tienda but should be imported
-    # as a top-level app named 'tienda' so Django can find it on sys.path.
-    'Control_de_Venta.Control_de_Venta.tienda',
+    # The app is located at Control_de_Venta/tienda and should be
+    # imported as the top-level package 'tienda' so Django can find it
+    # regardless of whether the project is executed from the repo root
+    # or from the nested project folder on the host (Render/Railway/etc.).
+    'tienda',
 ]
 
 MIDDLEWARE = [
