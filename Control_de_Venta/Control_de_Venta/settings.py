@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'tienda',
+    'Control_de_Venta.tienda',
 ]
 
 MIDDLEWARE = [
@@ -55,7 +55,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'Control_de_Venta.urls'
+ROOT_URLCONF = 'Control_de_Venta.Control_de_Venta.urls'
+
 
 TEMPLATES = [
     {
