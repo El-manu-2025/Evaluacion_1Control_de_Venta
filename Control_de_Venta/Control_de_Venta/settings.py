@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-$xmrdwnv%2&@#2w15vy@%&!o)#tkucm+!$8)s#@j=6e&i$g=1)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['control-de-venta-5g7i.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS =  ['*']
 
 
 # Application definition
@@ -82,12 +82,13 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('DB_NAME', 'postgres'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+        'USER': os.getenv('DB_USER', 'postgres.owcdnezbpiuhootbicve'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '1HElZVZBbrluIwW8'),
+        'HOST': os.getenv('DB_HOST', 'aws-1-us-east-2.pooler.supabase.com'),
+        'PORT': os.getenv('DB_PORT', '6543'),
     }
 }
+
 
 
 # Password validation
