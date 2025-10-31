@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # The app is located at Control_de_Venta/tienda but should be imported
     # as a top-level app named 'tienda' so Django can find it on sys.path.
-    'tienda',
+    'Control_de_Venta.tienda',
 ]
 
 MIDDLEWARE = [
