@@ -20,8 +20,12 @@ for p in (project_root, project_parent):
 	if p and p not in sys.path:
 		sys.path.insert(0, p)
 
-# Use the explicit settings module that matches the project layout.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Control_de_Venta.Control_de_Venta.settings')
+# Use the explicit settings module that matches how we expose the inner
+# package on sys.path in both local and deployed environments. We use the
+# single-dotted path because the outer folder (`Control_de_Venta/`) is
+# added to sys.path above and the inner package is importable as
+# `Control_de_Venta`.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Control_de_Venta.settings')
 
 from django.core.wsgi import get_wsgi_application
 
