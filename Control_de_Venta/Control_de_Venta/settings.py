@@ -81,16 +81,54 @@ WSGI_APPLICATION = 'Control_de_Venta.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME'),
-        'USER': os.getenv('DB_USER'),
-        'PASSWORD': os.getenv('DB_PASSWORD'),
-        'HOST': os.getenv('DB_HOST'),
-        'PORT': os.getenv('DB_PORT'),
+# Database configuration
+# Prefer a single DATABASE_URL env var (recommended for Render/Supabase).
+DATABASE_URL = os.getenv('DATABASE_URL')
+if DATABASE_URL:
+    from urllib.parse import urlparse
+
+    parsed = urlparse(DATABASE_URL)
+    # Try to resolve the hostname to an IPv4 address to avoid IPv6
+    # "Network is unreachable" issues on some hosts (Render). This is a
+    # pragmatic workaround: if an IPv4 address is found we use it as HOST.
+    host_to_use = parsed.hostname
+    try:
+        import socket
+
+        infos = socket.getaddrinfo(parsed.hostname, parsed.port or 5432, family=socket.AF_INET)
+        if infos:
+            # infos is a list of tuples; sockaddr at index 4 contains (ip, port)
+            host_to_use = infos[0][4][0]
+    except Exception:
+        # If resolution fails, fall back to the DNS hostname from the URL
+        host_to_use = parsed.hostname
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': parsed.path[1:],
+            'USER': parsed.username,
+            'PASSWORD': parsed.password,
+            'HOST': host_to_use,
+            'PORT': parsed.port or '5432',
+            'OPTIONS': {'sslmode': 'require'},
+        }
     }
-}
+else:
+    # Fallback to individual environment variables (useful for local dev)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('DB_NAME', 'postgres'),
+            'USER': os.getenv('DB_USER', 'postgres'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
+    }
+
+# Default connection age (0 = close per request). Adjust if you need pooling.
+DATABASES['default'].setdefault('CONN_MAX_AGE', 0)
 
 
 
