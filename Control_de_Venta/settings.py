@@ -81,7 +81,7 @@ MIDDLEWARE = [
 # (repo_root/Control_de_Venta) is added to sys.path, the inner package
 # becomes importable as `Control_de_Venta` (single name). Use the
 # single-dotted import paths for URLs and WSGI to match that layout.
-ROOT_URLCONF = 'Control_de_Venta.Control_de_Venta.urls'
+ROOT_URLCONF = 'Control_de_Venta.urls'
 
 
 
