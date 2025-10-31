@@ -42,7 +42,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'Control_de_Venta.tienda',
+    # The app is located at Control_de_Venta/tienda but should be imported
+    # as a top-level app named 'tienda' so Django can find it on sys.path.
+    'tienda',
 ]
 
 MIDDLEWARE = [
@@ -55,7 +57,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'Control_de_Venta.Control_de_Venta.urls'
+ROOT_URLCONF = 'Control_de_Venta.urls'
 
 
 TEMPLATES = [
