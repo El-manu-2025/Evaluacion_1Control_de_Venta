@@ -50,6 +50,18 @@ if chosen is None:
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', chosen)
 
+# Try importing the full settings module and print any exception to logs so we
+# can see the real cause (syntax error, missing dependency, etc.). This does
+# not stop execution; Django will re-raise if import fails later, but the
+# explicit traceback here helps debugging in deployment logs.
+try:
+	importlib.import_module(chosen)
+	print('WSGI: successfully imported settings module:', chosen)
+except Exception as exc:
+	import traceback
+	print('WSGI: failed to import settings module:', chosen)
+	traceback.print_exc()
+
 from django.core.wsgi import get_wsgi_application
 
 application = get_wsgi_application()
