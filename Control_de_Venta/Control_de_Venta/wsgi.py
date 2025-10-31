@@ -9,19 +9,47 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/
 
 import os
 import sys
+import importlib
 
-# Ensure the project root is on sys.path so the inner package `Control_de_Venta`
-# can be imported regardless of the process current working directory. In
-# deployment environments (Railway/Render) Gunicorn may import this module
-# directly and the CWD may not include the repo root.
+# Add both the project root and its parent to sys.path so different import
+# layouts are supported (e.g. when Gunicorn changes the working directory).
 current_dir = os.path.dirname(__file__)  # .../Control_de_Venta/Control_de_Venta
 project_root = os.path.dirname(current_dir)  # .../Control_de_Venta
-if project_root not in sys.path:
-	sys.path.insert(0, project_root)
+project_parent = os.path.dirname(project_root)  # .../ (repo root parent)
+
+for p in (project_root, project_parent):
+	if p and p not in sys.path:
+		sys.path.insert(0, p)
+
+# Diagnostic output for deployment logs to help troubleshoot import issues.
+print('WSGI: current_dir=', current_dir)
+print('WSGI: project_root=', project_root)
+print('WSGI: project_parent=', project_parent)
+print('WSGI: sys.path (head)=', sys.path[:5])
+
+# Try to detect which settings module is importable and set DJANGO_SETTINGS_MODULE
+# accordingly (supports both 'Control_de_Venta.settings' and
+# 'Control_de_Venta.Control_de_Venta.settings').
+SETTINGS_CANDIDATES = [
+	'Control_de_Venta.settings',
+	'Control_de_Venta.Control_de_Venta.settings',
+]
+chosen = None
+for candidate in SETTINGS_CANDIDATES:
+	try:
+		importlib.import_module(candidate.rsplit('.', 1)[0])
+		chosen = candidate
+		print('WSGI: detected settings module candidate:', candidate)
+		break
+	except Exception:
+		continue
+
+if chosen is None:
+	# fallback to the first candidate; let Django raise the proper error later
+	chosen = SETTINGS_CANDIDATES[0]
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', chosen)
 
 from django.core.wsgi import get_wsgi_application
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Control_de_Venta.settings')
-
 
 application = get_wsgi_application()
