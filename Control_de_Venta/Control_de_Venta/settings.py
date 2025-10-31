@@ -77,9 +77,11 @@ MIDDLEWARE = [
 ]
 
 # The project layout places the actual Django project package at
-# Control_de_Venta/Control_de_Venta, so use the full import path for URL
-# configuration to avoid ModuleNotFoundError in deployed environments.
-ROOT_URLCONF = 'Control_de_Venta.Control_de_Venta.urls'
+# Control_de_Venta/Control_de_Venta. When the outer folder
+# (repo_root/Control_de_Venta) is added to sys.path, the inner package
+# becomes importable as `Control_de_Venta` (single name). Use the
+# single-dotted import paths for URLs and WSGI to match that layout.
+ROOT_URLCONF = 'Control_de_Venta.urls'
 
 
 TEMPLATES = [
@@ -98,7 +100,7 @@ TEMPLATES = [
 ]
 
 # Point to the inner wsgi module (same package as settings).
-WSGI_APPLICATION = 'Control_de_Venta.Control_de_Venta.wsgi.application'
+WSGI_APPLICATION = 'Control_de_Venta.wsgi.application'
 
 
 # Database

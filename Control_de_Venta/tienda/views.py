@@ -3,7 +3,8 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
 from django.db.models import Sum
 from django.contrib import messages
-from .models import Producto, Cliente, Venta
+from .models import Producto, Cliente, Venta, VentaDetalle
+from django.db import transaction
 import re
 
 
@@ -17,7 +18,7 @@ def lista_productos(request):
 def resumen_ventas(request):
     from django.utils.dateparse import parse_date
     # Obtiene todas las ventas, ordenadas por fecha descendente
-    ventas_qs = Venta.objects.select_related('cliente', 'producto').order_by('-fecha')
+    ventas_qs = Venta.objects.select_related('cliente').prefetch_related('detalles__producto').order_by('-fecha')
     # Obtiene los parámetros de filtro de fecha desde la URL
     fecha_inicio = request.GET.get('fecha_inicio')
     fecha_fin = request.GET.get('fecha_fin')
@@ -138,10 +139,22 @@ def registrar_venta(request):
                 cliente.nombre = nombre
             cliente.save()
 
-        # Registra la venta y descuenta el stock
-        Venta.objects.create(cliente=cliente, producto=producto, cantidad=cantidad)
-        producto.cantidad -= cantidad
-        producto.save()
+        # Registra la venta y el detalle en una transacción, actualizando stock
+        try:
+            with transaction.atomic():
+                venta = Venta.objects.create(cliente=cliente)
+                detalle = VentaDetalle.objects.create(
+                    venta=venta,
+                    producto=producto,
+                    cantidad=cantidad,
+                    precio_unitario=producto.precio,
+                )
+                # Descontar stock
+                producto.cantidad -= cantidad
+                producto.save()
+        except Exception as e:
+            messages.error(request, f'❌ Error al registrar la venta: {e}')
+            return render(request, 'tienda/error.html', {'mensaje': str(e)})
         
         messages.success(request, '✅ Venta registrada con éxito.')
         return redirect('lista_productos')
