@@ -37,9 +37,21 @@ SETTINGS_CANDIDATES = [
 chosen = None
 for candidate in SETTINGS_CANDIDATES:
 	try:
-		importlib.import_module(candidate.rsplit('.', 1)[0])
+		pkg = importlib.import_module(candidate.rsplit('.', 1)[0])
 		chosen = candidate
 		print('WSGI: detected settings module candidate:', candidate)
+		try:
+			print('WSGI: package', pkg, 'file=', getattr(pkg, '__file__', None))
+			print('WSGI: package __path__=', getattr(pkg, '__path__', None))
+			# list the first path of the package if possible
+			if getattr(pkg, '__path__', None):
+				p0 = list(pkg.__path__)[0]
+				try:
+					print('WSGI: package listing for', p0, '=', os.listdir(p0))
+				except Exception as e:
+					print('WSGI: failed to list package path', p0, '->', e)
+		except Exception as _:
+			pass
 		break
 	except Exception:
 		continue
