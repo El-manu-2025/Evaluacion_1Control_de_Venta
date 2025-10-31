@@ -81,11 +81,11 @@ WSGI_APPLICATION = 'Control_de_Venta.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('DB_NAME', 'postgres'),
-        'USER': os.getenv('DB_USER', 'postgres.owcdnezbpiuhootbicve'),
-        'PASSWORD': os.getenv('DB_PASSWORD', '1HElZVZBbrluIwW8'),
-        'HOST': os.getenv('DB_HOST', 'aws-1-us-east-2.pooler.supabase.com'),
-        'PORT': os.getenv('DB_PORT', '6543'),
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
 }
 
