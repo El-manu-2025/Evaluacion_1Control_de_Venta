@@ -37,23 +37,28 @@ SETTINGS_CANDIDATES = [
 chosen = None
 for candidate in SETTINGS_CANDIDATES:
 	try:
-		pkg = importlib.import_module(candidate.rsplit('.', 1)[0])
+		# Try importing the full settings module directly. This ensures the
+		# specific submodule exists (not just the parent package).
+		mod = importlib.import_module(candidate)
 		chosen = candidate
-		print('WSGI: detected settings module candidate:', candidate)
+		print('WSGI: successfully imported settings module candidate:', candidate)
+		# Diagnostic: also import the parent package and list its content.
+		pkg_name = candidate.rsplit('.', 1)[0]
 		try:
+			pkg = importlib.import_module(pkg_name)
 			print('WSGI: package', pkg, 'file=', getattr(pkg, '__file__', None))
 			print('WSGI: package __path__=', getattr(pkg, '__path__', None))
-			# list the first path of the package if possible
 			if getattr(pkg, '__path__', None):
 				p0 = list(pkg.__path__)[0]
 				try:
 					print('WSGI: package listing for', p0, '=', os.listdir(p0))
 				except Exception as e:
 					print('WSGI: failed to list package path', p0, '->', e)
-		except Exception as _:
-			pass
+		except Exception as e:
+			print('WSGI: failed to import parent package for diagnostics:', e)
 		break
-	except Exception:
+	except Exception as exc:
+		print('WSGI: could not import candidate', candidate, '->', exc)
 		continue
 
 if chosen is None:
