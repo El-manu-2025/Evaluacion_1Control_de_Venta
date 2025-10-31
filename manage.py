@@ -6,6 +6,16 @@ import sys
 
 def main():
     """Run administrative tasks."""
+  
+    base_dir = os.path.abspath(os.path.dirname(__file__))
+    candidate_a = os.path.join(base_dir, 'Control_de_Venta')
+    candidate_b = os.path.join(candidate_a, 'Control_de_Venta')
+    # Prepend candidate paths if they exist so imports resolve correctly.
+    for p in (candidate_a, candidate_b):
+        if os.path.isdir(p) and p not in sys.path:
+            sys.path.insert(0, p)
+
+    # Default settings module (keep compatibility with nested layout)
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Control_de_Venta.settings')
     try:
         from django.core.management import execute_from_command_line
