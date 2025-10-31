@@ -1,1 +1,1 @@
-web: gunicorn Control_de_Venta.wsgi:application
+web: gunicorn Control_de_Venta.wsgi:application --chdir .
