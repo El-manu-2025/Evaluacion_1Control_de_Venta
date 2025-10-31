@@ -3,3 +3,4 @@ gunicorn
 openpyxl>=3.1.2
 python-dotenv
 psycopg2
+whitenoise
