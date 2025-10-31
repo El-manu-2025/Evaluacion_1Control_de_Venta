@@ -49,7 +49,7 @@ except Exception:
 # single-dotted path because the outer folder (`Control_de_Venta/`) is
 # added to sys.path above and the inner package is importable as
 # `Control_de_Venta`.
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Control_de_Venta.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'Control_de_Venta.Control_de_Venta.settings')
 
 from django.core.wsgi import get_wsgi_application
 
