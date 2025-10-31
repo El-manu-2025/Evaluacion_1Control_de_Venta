@@ -88,20 +88,44 @@ if DATABASE_URL:
     from urllib.parse import urlparse
 
     parsed = urlparse(DATABASE_URL)
-    # Try to resolve the hostname to an IPv4 address to avoid IPv6
-    # "Network is unreachable" issues on some hosts (Render). This is a
-    # pragmatic workaround: if an IPv4 address is found we use it as HOST.
+    # Try to resolve the hostname to an IPv4 address and verify connectivity
+    # to avoid IPv6 "Network is unreachable" issues on some hosts (Render).
     host_to_use = parsed.hostname
     try:
         import socket
 
-        infos = socket.getaddrinfo(parsed.hostname, parsed.port or 5432, family=socket.AF_INET)
-        if infos:
-            # infos is a list of tuples; sockaddr at index 4 contains (ip, port)
-            host_to_use = infos[0][4][0]
+        def find_working_ipv4(hostname, port, timeout=2):
+            try:
+                infos = socket.getaddrinfo(hostname, port, family=socket.AF_INET)
+            except Exception:
+                return None
+            for info in infos:
+                sockaddr = info[4]
+                ip = sockaddr[0]
+                try:
+                    # Try a short connection to verify reachability
+                    with socket.create_connection((ip, port), timeout=timeout):
+                        return ip
+                except Exception:
+                    continue
+            return None
+
+        port_to_test = parsed.port or 5432
+        ipv4 = find_working_ipv4(parsed.hostname, port_to_test)
+        if not ipv4:
+            # Try the common Supabase pooler port as a fallback (6543)
+            ipv4 = find_working_ipv4(parsed.hostname, 6543)
+            if ipv4:
+                port_to_test = 6543
+        if ipv4:
+            host_to_use = ipv4
+            parsed_port = port_to_test
+        else:
+            parsed_port = parsed.port or '5432'
     except Exception:
-        # If resolution fails, fall back to the DNS hostname from the URL
+        # If anything goes wrong, fall back to the DNS hostname and original port
         host_to_use = parsed.hostname
+        parsed_port = parsed.port or '5432'
 
     DATABASES = {
         'default': {
@@ -110,7 +134,7 @@ if DATABASE_URL:
             'USER': parsed.username,
             'PASSWORD': parsed.password,
             'HOST': host_to_use,
-            'PORT': parsed.port or '5432',
+            'PORT': parsed_port,
             'OPTIONS': {'sslmode': 'require'},
         }
     }
