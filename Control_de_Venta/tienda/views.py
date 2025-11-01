@@ -2,6 +2,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
 from django.db.models import Sum
+from django.db.models import ProtectedError
 from django.contrib import messages
 from .models import Producto, Cliente, Venta, VentaDetalle
 from django.db import transaction
@@ -78,11 +79,14 @@ def agregar_producto(request):
 
 
 # Vista para eliminar un producto por su id
-def eliminar_producto(request, id):
-    producto = get_object_or_404(Producto, id=id)
-    producto.delete()
+def eliminar_producto(request, producto_id):
+    producto = get_object_or_404(Producto, id=producto_id)
+    try:
+        producto.delete()
+        messages.success(request, "Producto eliminado correctamente.")
+    except ProtectedError:
+        messages.error(request, "No se puede eliminar este producto porque está asociado a una venta.")
     return redirect('lista_productos')
-
 
 # Vista para registrar una venta
 def registrar_venta(request):
