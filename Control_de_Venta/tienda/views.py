@@ -7,7 +7,10 @@ from django.contrib import messages
 from .models import Producto, Cliente, Venta, VentaDetalle
 from django.db import transaction
 import re
+from django.contrib.auth.models import Group, User
+from rest_framework import permissions, viewsets
 
+from .serializers import GroupSerializer, UserSerializer
 
 # Vista para listar todos los productos
 def lista_productos(request):
