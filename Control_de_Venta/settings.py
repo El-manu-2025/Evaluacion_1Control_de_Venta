@@ -49,7 +49,6 @@ CSRF_TRUSTED_ORIGINS = [
 
 
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -60,6 +59,11 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'Control_de_Venta.tienda', 
 ]
+
+REST_FRAMEWORK = {
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -106,7 +110,7 @@ WSGI_APPLICATION = 'Control_de_Venta.wsgi.application'
 
 # Database configuration
 # Prefer a single DATABASE_URL env var (recommended for Render/Supabase).
-DATABASE_URL = os.getenv('DATABASE_URL')
+'''DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL:
     from urllib.parse import urlparse
 
@@ -175,7 +179,14 @@ else:
     }
 
 # Default connection age (0 = close per request). Adjust if you need pooling.
-DATABASES['default'].setdefault('CONN_MAX_AGE', 0)
+DATABASES['default'].setdefault('CONN_MAX_AGE', 0)'''
+
+DATABASES = {
+    'default': {    
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': 'db.sqlite3',
+    }
+}
 
 
 
