@@ -10,7 +10,28 @@ import re
 
 from django.contrib.auth.models import Group, User
 from rest_framework import permissions, viewsets
-from .serializers import GroupSerializer, UserSerializer
+from .serializers import GroupSerializer, UserSerializer, ClienteSerializer, ProductoSerializer, VentaSerializer, VentaDetalleSerializer
+
+class ClienteViewSet(viewsets.ModelViewSet):
+    queryset = Cliente.objects.all().order_by("rut")
+    serializer_class = ClienteSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class ProductoViewSet(viewsets.ModelViewSet):
+    queryset = Producto.objects.all().order_by("nombre")
+    serializer_class = ProductoSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class VentaViewSet(viewsets.ModelViewSet):
+    queryset = Venta.objects.all().order_by("-fecha")
+    serializer_class = VentaSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class VentaDetalleViewSet(viewsets.ModelViewSet):
+    queryset = VentaDetalle.objects.all()
+    serializer_class = VentaDetalleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-date_joined")
