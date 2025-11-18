@@ -32,7 +32,7 @@ DEBUG = True
 
 ALLOWED_HOSTS =  ['*']
 
-# In production Django requires explicit trusted origins for CSRF checks when
+'''# In production Django requires explicit trusted origins for CSRF checks when
 # requests originate from a different host name (e.g. your Railway/Render URL).
 # Set the environment variable `CSRF_TRUSTED_ORIGINS` to a comma-separated
 # list of origins (including scheme), or leave the default below for quick
@@ -45,7 +45,7 @@ CSRF_TRUSTED_ORIGINS = [
         'https://evaluacion1controldeventa-production.up.railway.app'
     ).split(',')
     if v.strip()
-]
+]'''
 
 
 # Application definition
