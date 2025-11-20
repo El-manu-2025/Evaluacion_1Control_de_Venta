@@ -32,6 +32,12 @@ DEBUG = True
 
 ALLOWED_HOSTS =  ['*']
 
+'''CORS_ALLOW_ALL_ORIGINS = [
+    '*'
+]'''
+
+CORS_ALLOW_ALL_ORIGINS = True
+
 '''# In production Django requires explicit trusted origins for CSRF checks when
 # requests originate from a different host name (e.g. your Railway/Render URL).
 # Set the environment variable `CSRF_TRUSTED_ORIGINS` to a comma-separated
@@ -59,6 +65,7 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'rest_framework',
     'Control_de_Venta.tienda', 
+    'corsheaders',
 ]
 
 from datetime import timedelta
@@ -83,10 +90,10 @@ SIMPLE_JWT = {
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # WhiteNoise middleware serves static files efficiently in production
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
