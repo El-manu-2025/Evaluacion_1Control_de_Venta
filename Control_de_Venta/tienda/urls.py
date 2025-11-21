@@ -8,7 +8,7 @@ router.register(r"groups", views.GroupViewSet)
 router.register(r"clientes", views.ClienteViewSet)
 router.register(r"productos", views.ProductoViewSet)
 router.register(r"ventas", views.VentaViewSet)
-
+router.register(r"ventadetalle", views.VentaDetalleViewSet) 
 
 urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
