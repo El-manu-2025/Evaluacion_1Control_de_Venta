@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'channels',
     'rest_framework',
     'Control_de_Venta.tienda', 
     'corsheaders',
@@ -113,6 +114,26 @@ TEMPLATES = [
 
 # Point to the inner wsgi module (same package as settings).
 WSGI_APPLICATION = 'Control_de_Venta.wsgi.application'
+# ASGI entrypoint for Channels (WebSocket support)
+ASGI_APPLICATION = 'Control_de_Venta.asgi.application'
+
+# Channel layer: Redis if REDIS_URL is set, otherwise in-memory (dev/local).
+REDIS_URL = os.getenv('REDIS_URL')
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [REDIS_URL],
+            },
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 
 # Database
