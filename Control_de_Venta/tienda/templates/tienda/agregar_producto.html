@@ -17,6 +17,15 @@
         <input type="text" name="codigo" value="{{ producto.codigo|default:'' }}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
     </div>
     <div class="mb-4">
+        <label class="block text-gray-700 font-semibold mb-1">Categoría:</label>
+        <select name="categoria_id" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <option value="">Sin categoría</option>
+            {% for cat in categorias %}
+                <option value="{{ cat.id }}" {% if producto.categoria_id == cat.id %}selected{% endif %}>{{ cat.nombre }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-4">
         <label class="block text-gray-700 font-semibold mb-1">Cantidad:</label>
         <input type="number" name="cantidad" value="{{ producto.cantidad|default:0 }}" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-400" required>
     </div>

@@ -7,3 +7,6 @@ whitenoise
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
+groq
+pillow
+python-magic-bin

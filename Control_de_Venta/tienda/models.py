@@ -23,12 +23,28 @@ class Cliente(models.Model):
         return f"{self.rut} - {'Habitual' if self.habitual else 'Ocasional'}"
 
 
+# Modelo que representa una categoría de productos
+class Categoria(models.Model):
+    nombre = models.CharField(max_length=100, unique=True)
+    descripcion = models.TextField(blank=True, null=True)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = 'Categoría'
+        verbose_name_plural = 'Categorías'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
 # Modelo que representa un producto en inventario
 class Producto(models.Model):
     nombre = models.CharField(max_length=100)  
     codigo = models.CharField(max_length=50, unique=True)  
     cantidad = models.IntegerField()  
-    precio = models.DecimalField(max_digits=10, decimal_places=2)  
+    precio = models.DecimalField(max_digits=10, decimal_places=2)
+    categoria = models.ForeignKey(Categoria, on_delete=models.SET_NULL, null=True, blank=True, related_name='productos')
 
     def __str__(self):
         return f"{self.nombre} ({self.codigo})"
@@ -70,3 +86,34 @@ class VentaDetalle(models.Model):
         if self.precio_unitario in (None, ''):
             self.precio_unitario = self.producto.precio
         super().save(*args, **kwargs)
+
+
+class ChatMessage(models.Model):
+    """Historial de mensajes IA con usuario."""
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='chat_messages')
+    user_message = models.TextField()
+    ai_response = models.TextField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    context_type = models.CharField(
+        max_length=20,
+        choices=[('general', 'General'), ('producto', 'Producto'), ('venta', 'Venta'), ('stock', 'Stock')],
+        default='general'
+    )
+
+    class Meta:
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
+
+
+class ImageAnalysis(models.Model):
+    """Registro de análisis de imágenes (fotos de productos, etiquetas, etc)."""
+    user = models.ForeignKey('auth.User', on_delete=models.CASCADE, related_name='image_analyses')
+    image = models.ImageField(upload_to='ia_uploads/')
+    analysis_result = models.JSONField()  # Resultado del análisis Groq
+    timestamp = models.DateTimeField(auto_now_add=True)
+    producto_created = models.ForeignKey(Producto, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"

@@ -2,13 +2,18 @@ from django.urls import path, include
 from . import views
 from rest_framework import routers 
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
 router = routers.DefaultRouter()
 router.register(r"users", views.UserViewSet)
 router.register(r"groups", views.GroupViewSet)
+router.register(r"categorias", views.CategoriaViewSet)
 router.register(r"clientes", views.ClienteViewSet)
 router.register(r"productos", views.ProductoViewSet)
 router.register(r"ventas", views.VentaViewSet)
-router.register(r"ventadetalle", views.VentaDetalleViewSet) 
+router.register(r"ventadetalle", views.VentaDetalleViewSet)
+router.register(r"chat", views.ChatMessageViewSet, basename="chat")
+router.register(r"images", views.ImageAnalysisViewSet, basename="images")
+router.register(r"analytics", views.AnalyticsViewSet, basename="analytics")
 
 urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

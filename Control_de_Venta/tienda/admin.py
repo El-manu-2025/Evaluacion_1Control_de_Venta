@@ -1,15 +1,23 @@
 from django.contrib import admin
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from .models import Producto, Cliente, Venta, VentaDetalle
+from .models import Producto, Cliente, Venta, VentaDetalle, Categoria
+
+
+@admin.register(Categoria)
+class CategoriaAdmin(admin.ModelAdmin):
+	"""Configuración del admin para Categoría."""
+	list_display = ('nombre', 'activa')
+	search_fields = ('nombre',)
+	list_filter = ('activa',)
 
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
 	"""Configuración del admin para Producto."""
-	list_display = ('nombre', 'codigo', 'cantidad', 'precio')
+	list_display = ('nombre', 'codigo', 'cantidad', 'precio', 'categoria')
 	search_fields = ('nombre', 'codigo')
-	list_filter = ('cantidad',)
+	list_filter = ('cantidad', 'categoria')
 
 
 @admin.register(Cliente)

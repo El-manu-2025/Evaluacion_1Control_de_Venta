@@ -1,16 +1,31 @@
 # Importaciones necesarias de Django y modelos propios
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
-from django.db.models import Sum
+from django.db.models import Sum, Count, Q
 from django.db.models import ProtectedError
 from django.contrib import messages
-from .models import Producto, Cliente, Venta, VentaDetalle
+from .models import Producto, Cliente, Venta, VentaDetalle, ChatMessage, ImageAnalysis, Categoria
 from django.db import transaction
 import re
+import json
+from datetime import timedelta
 
 from django.contrib.auth.models import Group, User
-from rest_framework import permissions, viewsets
-from .serializers import GroupSerializer, UserSerializer, ClienteSerializer, ProductoSerializer, VentaSerializer, VentaDetalleSerializer
+from rest_framework import permissions, viewsets, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from .serializers import (
+    GroupSerializer, UserSerializer, ClienteSerializer, ProductoSerializer,
+    VentaSerializer, VentaDetalleSerializer, ChatMessageSerializer, ImageAnalysisSerializer, CategoriaSerializer
+)
+from .groq_utils import (
+    chat_with_groq, analyze_image_with_groq, generate_stock_suggestions, analyze_sales_trends
+)
+
+class CategoriaViewSet(viewsets.ModelViewSet):
+    queryset = Categoria.objects.all().order_by("nombre")
+    serializer_class = CategoriaSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class ClienteViewSet(viewsets.ModelViewSet):
     queryset = Cliente.objects.all().order_by("rut")
@@ -45,7 +60,315 @@ class GroupViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
-# Vista para listar todos los productos
+class ChatMessageViewSet(viewsets.ModelViewSet):
+    """ViewSet para chat IA."""
+    serializer_class = ChatMessageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """Solo retorna mensajes del usuario autenticado."""
+        return ChatMessage.objects.filter(user=self.request.user).order_by('-timestamp')
+
+    def create(self, request, *args, **kwargs):
+        """Envía un mensaje a Groq y guarda en historial."""
+        user_message = request.data.get('user_message', '').strip()
+        context_type = request.data.get('context_type', 'general')
+
+        if not user_message:
+            return Response(
+                {'error': 'El mensaje no puede estar vacío.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Obtener contexto según tipo (productos, ventas, etc)
+        context = self._build_context(context_type)
+
+        # Obtener últimos 5 mensajes como historial
+        history = list(
+            ChatMessage.objects.filter(user=request.user).order_by('-timestamp')[:5]
+        )
+        history.reverse()
+        history_messages = [
+            {"role": "user", "content": h.user_message}
+            for h in history
+        ] + [
+            {"role": "assistant", "content": h.ai_response}
+            for h in history
+        ]
+
+        # Llamar a Groq
+        ai_response = chat_with_groq(user_message, context=context, history=history_messages)
+
+        # Guardar en BD
+        chat_msg = ChatMessage.objects.create(
+            user=request.user,
+            user_message=user_message,
+            ai_response=ai_response,
+            context_type=context_type
+        )
+
+        serializer = self.get_serializer(chat_msg)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def _build_context(self, context_type):
+        """Construye contexto según tipo solicitado."""
+        if context_type == 'producto':
+            productos = Producto.objects.all().values('nombre', 'codigo', 'cantidad', 'precio')
+            return f"Productos disponibles:\n{json.dumps(list(productos), default=str, ensure_ascii=False)}"
+        elif context_type == 'venta':
+            ventas_recent = Venta.objects.filter(
+                fecha__gte=now() - timedelta(days=30)
+            ).values('cliente__nombre', 'fecha').annotate(total=Sum('detalles__cantidad'))
+            return f"Ventas últimos 30 días:\n{json.dumps(list(ventas_recent), default=str, ensure_ascii=False)}"
+        elif context_type == 'stock':
+            bajo_stock = Producto.objects.filter(cantidad__lt=10).values('nombre', 'cantidad')
+            return f"Productos con bajo stock:\n{json.dumps(list(bajo_stock), default=str, ensure_ascii=False)}"
+        return None
+
+    @action(detail=False, methods=['get'])
+    def history(self, request):
+        """Retorna el historial de chat del usuario."""
+        queryset = self.get_queryset()[:20]
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class ImageAnalysisViewSet(viewsets.ModelViewSet):
+    """ViewSet para análisis de imágenes con Groq Vision."""
+    serializer_class = ImageAnalysisSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """Solo retorna análisis del usuario autenticado."""
+        return ImageAnalysis.objects.filter(user=self.request.user).order_by('-timestamp')
+
+    def create(self, request, *args, **kwargs):
+        """Analiza una imagen y extrae información de producto."""
+        if 'image' not in request.FILES:
+            return Response(
+                {'error': 'No se proporcionó una imagen.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        image_file = request.FILES['image']
+        image_bytes = image_file.read()
+
+        # Analizar con Groq Vision
+        analysis_text = analyze_image_with_groq(image_bytes)
+
+        # Intentar parsear JSON del análisis
+        try:
+            analysis_json = json.loads(analysis_text)
+        except json.JSONDecodeError:
+            analysis_json = {"raw_text": analysis_text}
+
+        # Guardar análisis en BD
+        img_analysis = ImageAnalysis.objects.create(
+            user=request.user,
+            image=image_file,
+            analysis_result=analysis_json
+        )
+
+        serializer = self.get_serializer(img_analysis)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['post'])
+    def create_producto_from_image(self, request):
+        """Analiza imagen y crea producto en BD."""
+        if 'image' not in request.FILES:
+            return Response(
+                {'error': 'No se proporcionó una imagen.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        image_file = request.FILES['image']
+        image_bytes = image_file.read()
+
+        # Analizar imagen
+        analysis_text = analyze_image_with_groq(image_bytes)
+        try:
+            analysis_data = json.loads(analysis_text)
+        except json.JSONDecodeError:
+            return Response(
+                {'error': 'No se pudo parsear el análisis de la imagen.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Extraer datos requeridos
+        nombre = analysis_data.get('nombre')
+        codigo = analysis_data.get('codigo')
+        precio_str = analysis_data.get('precio', '0')
+        cantidad_str = analysis_data.get('cantidad', '0')
+
+        if not nombre or not codigo:
+            return Response(
+                {'error': 'La imagen no contiene nombre o código de producto válido.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Convertir a tipos correctos
+        try:
+            precio = float(precio_str) if precio_str else 0
+            cantidad = int(cantidad_str) if cantidad_str else 0
+        except (ValueError, TypeError):
+            precio = 0
+            cantidad = 0
+
+        # Crear producto
+        try:
+            producto = Producto.objects.create(
+                nombre=nombre,
+                codigo=codigo,
+                precio=precio,
+                cantidad=cantidad
+            )
+
+            # Guardar análisis con referencia al producto
+            img_analysis = ImageAnalysis.objects.create(
+                user=request.user,
+                image=image_file,
+                analysis_result=analysis_data,
+                producto_created=producto
+            )
+
+            return Response(
+                {
+                    'producto': ProductoSerializer(producto).data,
+                    'analysis': ImageAnalysisSerializer(img_analysis).data
+                },
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Error creando producto: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['post'])
+    def create_producto_from_text(self, request):
+        """Crea producto a partir de texto (nombre, código, precio, cantidad)."""
+        nombre = request.data.get('nombre', '').strip()
+        codigo = request.data.get('codigo', '').strip()
+        precio = float(request.data.get('precio', 0))
+        cantidad = int(request.data.get('cantidad', 0))
+
+        if not nombre or not codigo:
+            return Response(
+                {'error': 'Nombre y código son requeridos.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            producto = Producto.objects.create(
+                nombre=nombre,
+                codigo=codigo,
+                precio=precio,
+                cantidad=cantidad
+            )
+            return Response(
+                ProductoSerializer(producto).data,
+                status=status.HTTP_201_CREATED
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'Error creando producto: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    @action(detail=False, methods=['get'])
+    def latest(self, request):
+        """Retorna últimos 10 análisis."""
+        queryset = self.get_queryset()[:10]
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+
+class AnalyticsViewSet(viewsets.ViewSet):
+    """ViewSet para análisis de ventas y recomendaciones."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def trends(self, request):
+        """Analiza tendencias de ventas de los últimos 30 días."""
+        days = int(request.query_params.get('days', 30))
+        start_date = now() - timedelta(days=days)
+
+        ventas = Venta.objects.filter(fecha__gte=start_date).values(
+            'fecha__date'
+        ).annotate(
+            total_units=Sum('detalles__cantidad'),
+            total_sales=Sum(
+                models.F('detalles__cantidad') * models.F('detalles__precio_unitario'),
+                output_field=models.DecimalField()
+            )
+        ).order_by('fecha__date')
+
+        productos_vendidos = VentaDetalle.objects.filter(
+            venta__fecha__gte=start_date
+        ).values('producto__nombre').annotate(
+            cantidad=Sum('cantidad'),
+            ingresos=Sum(models.F('cantidad') * models.F('precio_unitario'), output_field=models.DecimalField())
+        ).order_by('-cantidad')
+
+        analytics_data = {
+            'periodo_dias': days,
+            'ventas_por_fecha': list(ventas),
+            'productos_top': list(productos_vendidos[:10]),
+            'fecha_analisis': str(now().date())
+        }
+
+        # Generar análisis con Groq
+        analysis_text = analyze_sales_trends(analytics_data)
+
+        return Response({
+            'analytics_data': analytics_data,
+            'ai_analysis': analysis_text
+        })
+
+    @action(detail=False, methods=['get'])
+    def stock_suggestions(self, request):
+        """Genera sugerencias de reorden de stock."""
+        productos = Producto.objects.all().values('id', 'nombre', 'codigo', 'cantidad', 'precio')
+
+        # Calcular velocidad de venta por producto (últimos 30 días)
+        days = 30
+        start_date = now() - timedelta(days=days)
+
+        velocidades = {}
+        for prod in productos:
+            vendidos = VentaDetalle.objects.filter(
+                producto_id=prod['id'],
+                venta__fecha__gte=start_date
+            ).aggregate(total=Sum('cantidad'))['total'] or 0
+            velocidades[prod['nombre']] = {
+                'stock_actual': prod['cantidad'],
+                'precio': str(prod['precio']),
+                'vendidos_30dias': vendidos,
+                'velocidad_diaria': round(vendidos / days, 2)
+            }
+
+        # Generar sugerencias con Groq
+        suggestions_text = generate_stock_suggestions(velocidades)
+
+        return Response({
+            'velocidades_venta': velocidades,
+            'sugerencias_reorden': suggestions_text,
+            'fecha_analisis': str(now().date())
+        })
+
+    @action(detail=False, methods=['get'])
+    def low_stock_alert(self, request):
+        """Retorna productos con stock bajo."""
+        threshold = int(request.query_params.get('threshold', 10))
+        low_stock = Producto.objects.filter(cantidad__lt=threshold).values(
+            'id', 'nombre', 'codigo', 'cantidad', 'precio'
+        )
+        return Response({
+            'threshold': threshold,
+            'productos': list(low_stock),
+            'cantidad_critica': len(low_stock)
+        })
+
 def lista_productos(request):
     productos = Producto.objects.all()
     return render(request, 'tienda/lista_productos.html', {'productos': productos})
@@ -87,6 +410,8 @@ def agregar_producto(request):
         codigo = request.POST['codigo']
         cantidad = int(request.POST['cantidad'] or 0)
         precio = float(request.POST['precio'] or 0)
+        categoria_id = request.POST.get('categoria_id') or None
+        
         # Si viene un id de producto, se actualiza; si no, se crea uno nuevo
         producto_id = request.POST.get('producto_id')
         if producto_id:
@@ -95,20 +420,28 @@ def agregar_producto(request):
             producto.codigo = codigo
             producto.cantidad = cantidad
             producto.precio = precio
+            producto.categoria_id = categoria_id
             producto.save()
 
             # Mensaje de actualización
             messages.success(request, '✅ Producto actualizado con éxito.')
 
         else:
-            Producto.objects.create(nombre=nombre, codigo=codigo, cantidad=cantidad, precio=precio)
+            Producto.objects.create(
+                nombre=nombre,
+                codigo=codigo,
+                cantidad=cantidad,
+                precio=precio,
+                categoria_id=categoria_id
+            )
             # Mensaje de creación
             messages.success(request, '✅ Producto agregado con éxito.')
         return redirect('lista_productos')
 
     # Si es GET, muestra el formulario, y si hay id, carga el producto a editar
     producto_id = request.GET.get('id')
-    context = {}
+    categorias = Categoria.objects.filter(activa=True).order_by('nombre')
+    context = {'categorias': categorias}
     if producto_id:
         context['producto'] = get_object_or_404(Producto, id=producto_id)
     return render(request, 'tienda/agregar_producto.html', context)

@@ -1,0 +1,317 @@
+"""
+Guía de integración Groq IA - Control de Venta
+"""
+
+# ============================================================
+# RESUMEN DE INTEGRACIÓN GROQ
+# ============================================================
+
+"""
+✅ Instaladas las siguientes dependencias:
+- groq            (cliente API Groq)
+- pillow          (procesamiento de imágenes)
+- python-magic-bin (detección de MIME types)
+
+✅ Modelos creados:
+- ChatMessage      (historial de chat con IA)
+- ImageAnalysis    (análisis de imágenes con visión)
+
+✅ Utilidades: groq_utils.py
+- chat_with_groq()               → Chat conversacional con contexto
+- analyze_image_with_groq()      → Análisis de imágenes (OCR, identificación)
+- generate_stock_suggestions()   → Sugerencias de reorden de stock
+- analyze_sales_trends()         → Análisis de tendencias de ventas
+
+✅ Endpoints API REST:
+- POST   /api/chat/                    → Enviar mensaje a IA
+- GET    /api/chat/history/            → Historial de chat
+- POST   /api/images/                  → Subir y analizar imagen
+- POST   /api/images/create_producto_from_image/  → Crear producto desde foto
+- POST   /api/images/create_producto_from_text/   → Crear producto desde texto
+- GET    /api/images/latest/           → Últimos análisis
+- GET    /api/analytics/trends/        → Análisis de tendencias (últimos 30 días)
+- GET    /api/analytics/stock_suggestions/ → Sugerencias de reorden
+- GET    /api/analytics/low_stock_alert/   → Alerta de stock bajo
+
+============================================================
+SETUP LOCAL
+============================================================
+
+1. CONFIGURAR .env CON GROQ_API_KEY:
+
+   # .env
+   GROQ_API_KEY=<tu_api_key_de_groq>
+   DATABASE_URL=<url_supabase_o_dejar_vacío_para_sqlite>
+
+2. INSTALAR DEPENDENCIAS:
+
+   pip install -r requirements.txt
+
+3. CREAR MIGRACIONES (si es necesario):
+
+   python manage.py makemigrations tienda
+   python manage.py migrate
+
+4. CREAR SUPERUSUARIO:
+
+   python manage.py createsuperuser
+
+5. EJECUTAR SERVIDOR:
+
+   python manage.py runserver
+
+============================================================
+TESTING DE ENDPOINTS
+============================================================
+
+PASO 1: Obtener token JWT
+   
+   POST http://localhost:8000/api/token/
+   {
+     "username": "tu_usuario",
+     "password": "tu_contraseña"
+   }
+   
+   Respuesta:
+   {
+     "access": "eyJ0eXAiOiJKV1QiLCJhbGc...",
+     "refresh": "eyJ0eXAiOiJKV1QiLCJhbGc..."
+   }
+
+PASO 2: Chat IA - Mensaje general
+
+   POST http://localhost:8000/api/chat/
+   Headers: Authorization: Bearer <access_token>
+   {
+     "user_message": "¿Cuál es mi producto más vendido?",
+     "context_type": "general"
+   }
+   
+   Respuesta:
+   {
+     "id": 1,
+     "user_message": "¿Cuál es mi producto más vendido?",
+     "ai_response": "...[respuesta de Groq]...",
+     "timestamp": "2025-12-08T...",
+     "context_type": "general"
+   }
+
+PASO 3: Chat IA - Con contexto de productos
+
+   POST http://localhost:8000/api/chat/
+   Headers: Authorization: Bearer <access_token>
+   {
+     "user_message": "¿Qué productos están en rojo de stock?",
+     "context_type": "stock"
+   }
+
+PASO 4: Subir imagen (foto de producto/etiqueta)
+
+   POST http://localhost:8000/api/images/
+   Headers: 
+     Authorization: Bearer <access_token>
+   Body: form-data
+     image: <archivo_jpg_o_png>
+   
+   Respuesta:
+   {
+     "id": 1,
+     "image": "/media/ia_uploads/...",
+     "analysis_result": {
+       "nombre": "Arroz integral 5kg",
+       "codigo": "ARR-001",
+       "precio": "8500",
+       "cantidad": "10",
+       "marca": "Buena Cosecha"
+     },
+     "timestamp": "2025-12-08T...",
+     "producto_created": null
+   }
+
+PASO 5: Crear producto desde foto
+
+   POST http://localhost:8000/api/images/create_producto_from_image/
+   Headers:
+     Authorization: Bearer <access_token>
+   Body: form-data
+     image: <archivo.jpg>
+   
+   Respuesta:
+   {
+     "producto": {
+       "url": "http://localhost:8000/api/productos/1/",
+       "nombre": "Arroz integral 5kg",
+       "codigo": "ARR-001",
+       "cantidad": 10,
+       "precio": "8500.00"
+     },
+     "analysis": {
+       "id": 2,
+       "image": "/media/ia_uploads/...",
+       "analysis_result": {...},
+       "producto_created": 1
+     }
+   }
+
+PASO 6: Crear producto desde texto
+
+   POST http://localhost:8000/api/images/create_producto_from_text/
+   Headers: Authorization: Bearer <access_token>
+   {
+     "nombre": "Leche entera 1L",
+     "codigo": "LECH-001",
+     "precio": "1200.50",
+     "cantidad": 45
+   }
+
+PASO 7: Obtener historial de chat
+
+   GET http://localhost:8000/api/chat/history/
+   Headers: Authorization: Bearer <access_token>
+   
+   Respuesta: [lista de últimos 20 mensajes]
+
+PASO 8: Análisis de tendencias (últimos 30 días)
+
+   GET http://localhost:8000/api/analytics/trends/
+   Headers: Authorization: Bearer <access_token>
+   
+   Respuesta:
+   {
+     "analytics_data": {
+       "periodo_dias": 30,
+       "ventas_por_fecha": [...],
+       "productos_top": [
+         {"producto__nombre": "Arroz", "cantidad": 50, "ingresos": "425000.00"}
+       ],
+       "fecha_analisis": "2025-12-08"
+     },
+     "ai_analysis": "...[análisis con recomendaciones de Groq]..."
+   }
+
+PASO 9: Sugerencias de reorden de stock
+
+   GET http://localhost:8000/api/analytics/stock_suggestions/
+   Headers: Authorization: Bearer <access_token>
+   
+   Respuesta:
+   {
+     "velocidades_venta": {
+       "Arroz": {
+         "stock_actual": 15,
+         "precio": "8500.00",
+         "vendidos_30dias": 50,
+         "velocidad_diaria": 1.67
+       }
+     },
+     "sugerencias_reorden": "...[recomendaciones de Groq]...",
+     "fecha_analisis": "2025-12-08"
+   }
+
+PASO 10: Alerta de stock bajo
+
+   GET http://localhost:8000/api/analytics/low_stock_alert/?threshold=10
+   Headers: Authorization: Bearer <access_token>
+   
+   Respuesta:
+   {
+     "threshold": 10,
+     "productos": [
+       {"id": 1, "nombre": "Arroz", "codigo": "ARR-001", "cantidad": 5}
+     ],
+     "cantidad_critica": 1
+   }
+
+============================================================
+INTEGRACIÓN ANDROID
+============================================================
+
+1. Tu app Android debe:
+   - Hacer login en /api/token/ y guardar el token JWT
+   - Usar Bearer <token> en todos los headers Authorization
+   - Multipart/form-data para POST con imágenes
+   - Content-Type: application/json para JSON
+
+2. Endpoints para app móvil:
+   
+   ChatActivity:
+   - POST /api/chat/ → enviar pregunta
+   - GET /api/chat/history/ → cargar historial
+   
+   CameraActivity (foto de producto):
+   - POST /api/images/create_producto_from_image/ → crear desde foto
+   - POST /api/images/ → solo analizar sin crear
+   
+   ProductoFormActivity (agregar manual):
+   - POST /api/images/create_producto_from_text/ → desde datos textuales
+   
+   AnalyticsActivity:
+   - GET /api/analytics/trends/ → gráficos y análisis
+   - GET /api/analytics/stock_suggestions/ → recomendaciones
+   - GET /api/analytics/low_stock_alert/ → alertas
+
+3. Manejo de errores esperados:
+   - 400: Datos incompletos o inválidos
+   - 401: Token expirado → refresh con /api/token/refresh/
+   - 403: Permisos insuficientes
+   - 500: Error del servidor (revisar logs)
+
+============================================================
+ARCHIVOS MODIFICADOS
+============================================================
+
+1. requirements.txt
+   - Agregadas: groq, pillow, python-magic-bin
+
+2. Control_de_Venta/tienda/models.py
+   - Agregados: ChatMessage, ImageAnalysis
+
+3. Control_de_Venta/tienda/serializers.py
+   - Agregados: ChatMessageSerializer, ImageAnalysisSerializer
+
+4. Control_de_Venta/tienda/views.py
+   - Agregados: ChatMessageViewSet, ImageAnalysisViewSet, AnalyticsViewSet
+
+5. Control_de_Venta/tienda/urls.py
+   - Registrados routers para chat, images, analytics
+
+6. Control_de_Venta/tienda/groq_utils.py (NUEVO)
+   - Integración completa con Groq API
+
+7. Control_de_Venta/tienda/migrations/0005_chatmessage_imageanalysis.py
+   - Migración para nuevos modelos
+
+============================================================
+NOTAS DE SEGURIDAD
+============================================================
+
+⚠️  Asegúrate de:
+- Usar HTTPS en producción
+- Almacenar GROQ_API_KEY en variables de entorno (nunca en código)
+- Cambiar SECRET_KEY en settings.py (debe ser diferente por ambiente)
+- Activar CORS solo para dominios permitidos
+- Usar CSRF tokens en formularios HTML
+- Rate limiting en endpoints públicos (opcional)
+
+============================================================
+PRÓXIMOS PASOS OPCIONALES
+============================================================
+
+1. Agregar modelos de Conversación (agrupar chats por tema)
+2. Guardar embeddings de productos para búsqueda por similitud
+3. Notificaciones push cuando stock cae bajo threshold
+4. Reportes exportables (PDF/Excel) con análisis de Groq
+5. Predicción de demanda usando histórico de ventas
+6. Chatbot multi-idioma (traducir prompts)
+
+"""
+
+# Para testing sin conexión a Supabase, puedes editar temporalmente settings.py:
+# Cambia:
+#   DATABASES = { 'default': { 'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3' } }
+# Luego:
+#   python manage.py migrate
+#   python manage.py createsuperuser
+#   python manage.py runserver
+
+# Cuando termines, restaura la config de Supabase.

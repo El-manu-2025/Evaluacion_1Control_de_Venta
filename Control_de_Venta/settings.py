@@ -176,20 +176,17 @@ if DATABASE_URL:
         }
     }
 else:
-    # Fallback to individual environment variables (useful for local dev)
+    # Fallback to SQLite for local development when DATABASE_URL is not set
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'postgres'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD', ''),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
 
 # Default connection age (0 = close per request). Adjust if you need pooling.
-DATABASES['default'].setdefault('CONN_MAX_AGE', 0)
+if DATABASES.get('default', {}).get('ENGINE') == 'django.db.backends.postgresql':
+    DATABASES['default'].setdefault('CONN_MAX_AGE', 0)
 
 
 # Password validation
