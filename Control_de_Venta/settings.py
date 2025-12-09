@@ -32,9 +32,11 @@ DEBUG = True
 
 ALLOWED_HOSTS =  ['*']
 
-'''CORS_ALLOW_ALL_ORIGINS = [
-    '*'
-]'''
+CORS_ALLOW_ALL_ORIGINS = [
+    "http://192.168.1.50:8000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://evaluacion1controldeventa-production.up.railway.app",
