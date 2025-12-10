@@ -13,12 +13,12 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-import os
-load_dotenv()
-
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Cargar variables de entorno desde .env en la raíz del proyecto
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
@@ -32,11 +32,15 @@ DEBUG = True
 
 ALLOWED_HOSTS =  ['*']
 
-CORS_ALLOW_ALL_ORIGINS = [
-    "http://192.168.1.50:8000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000",
-]
+# Permitir todos los orígenes (para desarrollo)
+CORS_ALLOW_ALL_ORIGINS = True
+
+# O especificar orígenes permitidos
+# CORS_ALLOWED_ORIGINS = [
+#     "http://192.168.1.50:8000",
+#     "http://localhost:8000",
+#     "http://127.0.0.1:8000",
+# ]
 
 CSRF_TRUSTED_ORIGINS = [
     "https://evaluacion1controldeventa-production.up.railway.app",
