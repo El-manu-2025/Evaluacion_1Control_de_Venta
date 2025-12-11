@@ -268,7 +268,7 @@ Identifica:
 2. Precio: si es visible (o 0)
 3. Categoría: OBLIGATORIO elegir UNA:
    • Almacenamiento (USB, discos, memorias)
-   • Electrónica (computadoras, cables, cámaras, teléfonos, mouses, teclados)
+   • Electrónica (computadoras, cables, cámaras, teléfonos, mouses, tecladosz)
    • Ropa (prendas, calzado)
    • Alimentos (comida, bebidas)
    • Hogar (muebles, decoración)

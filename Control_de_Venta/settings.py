@@ -17,8 +17,15 @@ from dotenv import load_dotenv
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Cargar variables de entorno desde .env en la raíz del proyecto
-load_dotenv(BASE_DIR / '.env')
+# Cargar variables de entorno desde .env
+# Intentar primero en la carpeta del proyecto (Control_de_Venta/.env),
+# y luego en la raíz del repositorio (../.env) por compatibilidad.
+env_project = BASE_DIR / '.env'
+env_repo_root = BASE_DIR.parent / '.env'
+if env_project.exists():
+    load_dotenv(env_project)
+elif env_repo_root.exists():
+    load_dotenv(env_repo_root)
 
 
 # Quick-start development settings - unsuitable for production
@@ -198,18 +205,38 @@ if DATABASE_URL:
             'USER': parsed.username,
             'PASSWORD': parsed.password,
             'HOST': host_to_use,
-            'PORT': parsed_port,
+            'PORT': str(parsed_port),
             'OPTIONS': {'sslmode': 'require'},
         }
     }
 else:
-    # Fallback to SQLite for local development when DATABASE_URL is not set
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+    # Fallback to discrete Supabase env vars if DATABASE_URL not provided
+    DB_NAME = os.getenv('DB_NAME')
+    DB_USER = os.getenv('DB_USER')
+    DB_PASSWORD = os.getenv('DB_PASSWORD')
+    DB_HOST = os.getenv('DB_HOST')
+    DB_PORT = os.getenv('DB_PORT', '5432')
+
+    if all([DB_NAME, DB_USER, DB_PASSWORD, DB_HOST]):
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': DB_NAME,
+                'USER': DB_USER,
+                'PASSWORD': DB_PASSWORD,
+                'HOST': DB_HOST,
+                'PORT': str(DB_PORT),
+                'OPTIONS': {'sslmode': 'require'},
+            }
         }
-    }
+    else:
+        # Fallback to SQLite for local development when not configured
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 
 # Default connection age (0 = close per request). Adjust if you need pooling.
 if DATABASES.get('default', {}).get('ENGINE') == 'django.db.backends.postgresql':

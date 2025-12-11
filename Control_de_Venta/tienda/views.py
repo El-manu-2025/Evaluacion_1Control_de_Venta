@@ -515,6 +515,8 @@ def lista_productos(request):
     productos = Producto.objects.all()
     return render(request, 'tienda/lista_productos.html', {'productos': productos})
 
+def ws_test(request):
+    return render(request, "tienda/ws_test.html")
 
 # Vista para mostrar el resumen de ventas, con filtro por fechas
 def resumen_ventas(request):

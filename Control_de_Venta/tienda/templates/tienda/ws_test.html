@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>WebSockets RealTime</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    .ok { color: #0a7; }
+    .err { color: #c00; }
+    pre { background: #f7f7f7; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>WebSockets RealTime</h1>
+  <p>Estado: <span id="status" class="err">Conectando…</span></p>
+  <pre id="log"></pre>
+  <script>
+    const statusEl = document.getElementById('status');
+    const logEl = document.getElementById('log');
+    function log(msg) { logEl.textContent += msg + "\n"; }
+
+    const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
+    const url = `${scheme}://${location.host}/ws/notifications/`;
+    log(`Conectando a ${url}`);
+
+    const ws = new WebSocket(url);
+    ws.onopen = () => { statusEl.textContent = 'Conectado'; statusEl.className = 'ok'; log('Conexión abierta'); ws.send('hola'); };
+    ws.onmessage = (ev) => log(`Mensaje: ${ev.data}`);
+    ws.onerror = (ev) => { statusEl.textContent = 'Error'; statusEl.className = 'err'; log('Error WS: ' + JSON.stringify(ev)); };
+    ws.onclose = (ev) => { statusEl.textContent = 'Cerrado'; statusEl.className = 'err'; log(`Cerrado: code=${ev.code} reason=${ev.reason}`); };
+  </script>
+</body>
+</html>
