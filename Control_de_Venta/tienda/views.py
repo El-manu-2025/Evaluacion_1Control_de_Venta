@@ -8,6 +8,7 @@ from .models import Producto, Cliente, Venta, VentaDetalle, ChatMessage, ImageAn
 from django.db import transaction
 import re
 import json
+import logging
 from datetime import timedelta
 
 from django.contrib.auth.models import Group, User
@@ -21,6 +22,8 @@ from .serializers import (
 from .groq_utils import (
     chat_with_groq, analyze_image_with_groq, generate_stock_suggestions, analyze_sales_trends
 )
+
+logger = logging.getLogger(__name__)
 
 class CategoriaViewSet(viewsets.ModelViewSet):
     queryset = Categoria.objects.all().order_by("nombre")
@@ -143,7 +146,101 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
         return ImageAnalysis.objects.filter(user=self.request.user).order_by('-timestamp')
 
     def create(self, request, *args, **kwargs):
-        """Analiza una imagen y extrae información de producto."""
+        """
+        Analiza una imagen y extrae información de producto.
+        SIEMPRE devuelve un JSON válido con estructura completa.
+        """
+        # Validación de archivo
+        if 'image' not in request.FILES:
+            return Response(
+                {
+                    'error': 'No se proporcionó una imagen.',
+                    'analysis_result': {
+                        'producto': '',
+                        'precio_estimado': 0.0,
+                        'categoria': '',
+                        'descripcion': 'Imagen no proporcionada'
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        image_file = request.FILES['image']
+        
+        # Validar tipo de archivo
+        valid_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        if image_file.content_type not in valid_types:
+            logger.warning(f"Tipo de archivo inválido: {image_file.content_type}")
+            return Response(
+                {
+                    'error': f'Tipo de archivo no válido. Use: {", ".join(valid_types)}',
+                    'analysis_result': {
+                        'producto': '',
+                        'precio_estimado': 0.0,
+                        'categoria': '',
+                        'descripcion': 'Formato de imagen no soportado'
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            image_bytes = image_file.read()
+        except Exception as e:
+            logger.error(f"Error leyendo archivo: {str(e)}")
+            return Response(
+                {
+                    'error': 'Error al leer el archivo de imagen',
+                    'analysis_result': {
+                        'producto': '',
+                        'precio_estimado': 0.0,
+                        'categoria': '',
+                        'descripcion': 'No se pudo procesar la imagen'
+                    }
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Usar la función mejorada de análisis
+        from .groq_utils import analyze_product_image_v2
+        analysis_result = analyze_product_image_v2(image_bytes, max_retries=2)
+        
+        # Log detallado para debugging
+        logger.info(f"📊 Resultado del análisis: {analysis_result}")
+        logger.info(f"  - Producto: '{analysis_result.get('producto')}'")
+        logger.info(f"  - Precio: {analysis_result.get('precio_estimado')}")
+        logger.info(f"  - Categoría: '{analysis_result.get('categoria')}'")
+        logger.info(f"  - Descripción: '{analysis_result.get('descripcion')}'")
+
+        # Guardar análisis en BD
+        try:
+            img_analysis = ImageAnalysis.objects.create(
+                user=request.user,
+                image=image_file,
+                analysis_result=analysis_result
+            )
+            
+            logger.info(f"Análisis guardado. ID: {img_analysis.id}, Resultado: {analysis_result}")
+            
+            serializer = self.get_serializer(img_analysis)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            
+        except Exception as e:
+            logger.error(f"Error guardando análisis en BD: {str(e)}")
+            return Response(
+                {
+                    'error': 'Error guardando análisis en base de datos',
+                    'analysis_result': analysis_result
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+    @action(detail=False, methods=['post'])
+    def debug_analysis(self, request):
+        """
+        ENDPOINT DE DEBUG - Muestra respuesta RAW de Groq
+        Útil para ver qué devuelve la IA sin procesamiento
+        """
         if 'image' not in request.FILES:
             return Response(
                 {'error': 'No se proporcionó una imagen.'},
@@ -151,77 +248,114 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
             )
 
         image_file = request.FILES['image']
-        image_bytes = image_file.read()
-
-        # Analizar con Groq Vision
-        analysis_text = analyze_image_with_groq(image_bytes)
-
-        # Intentar parsear JSON del análisis
+        
         try:
-            analysis_json = json.loads(analysis_text)
-        except json.JSONDecodeError:
-            analysis_json = {"raw_text": analysis_text}
+            image_bytes = image_file.read()
+        except Exception as e:
+            logger.error(f"Error leyendo imagen: {str(e)}")
+            return Response(
+                {'error': f'Error al leer imagen: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        # Guardar análisis en BD
-        img_analysis = ImageAnalysis.objects.create(
-            user=request.user,
-            image=image_file,
-            analysis_result=analysis_json
+        # Usar la función antigua para ver respuesta RAW
+        from .groq_utils import analyze_image_with_groq
+        raw_response = analyze_image_with_groq(image_bytes)
+        
+        logger.info(f"🔍 RESPUESTA RAW DE GROQ:\n{raw_response}")
+        
+        return Response(
+            {
+                'message': 'DEBUG - Ver logs del servidor para respuesta RAW',
+                'raw_response': raw_response
+            },
+            status=status.HTTP_200_OK
         )
-
-        serializer = self.get_serializer(img_analysis)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'])
     def create_producto_from_image(self, request):
-        """Analiza imagen y crea producto en BD."""
+        """
+        Analiza imagen y crea producto en BD.
+        SIEMPRE retorna datos válidos (nunca null).
+        """
         if 'image' not in request.FILES:
             return Response(
-                {'error': 'No se proporcionó una imagen.'},
+                {
+                    'error': 'No se proporcionó una imagen.',
+                    'producto': None,
+                    'analysis': {
+                        'producto': '',
+                        'precio_estimado': 0.0,
+                        'categoria': '',
+                        'descripcion': 'Imagen no proporcionada'
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         image_file = request.FILES['image']
-        image_bytes = image_file.read()
-
-        # Analizar imagen
-        analysis_text = analyze_image_with_groq(image_bytes)
+        
         try:
-            analysis_data = json.loads(analysis_text)
-        except json.JSONDecodeError:
+            image_bytes = image_file.read()
+        except Exception as e:
+            logger.error(f"Error leyendo imagen: {str(e)}")
             return Response(
-                {'error': 'No se pudo parsear el análisis de la imagen.'},
+                {
+                    'error': 'No se pudo leer el archivo de imagen',
+                    'producto': None,
+                    'analysis': {
+                        'producto': '',
+                        'precio_estimado': 0.0,
+                        'categoria': '',
+                        'descripcion': 'Error al procesar imagen'
+                    }
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Extraer datos requeridos
-        nombre = analysis_data.get('nombre')
-        codigo = analysis_data.get('codigo')
-        precio_str = analysis_data.get('precio', '0')
-        cantidad_str = analysis_data.get('cantidad', '0')
+        # Analizar imagen con versión mejorada
+        from .groq_utils import analyze_product_image_v2
+        analysis_data = analyze_product_image_v2(image_bytes, max_retries=2)
 
-        if not nombre or not codigo:
+        logger.info(f"Análisis completado: {analysis_data}")
+
+        # Extraer datos (con fallbacks para campos vacíos)
+        nombre = analysis_data.get('producto', '').strip()
+        precio = analysis_data.get('precio_estimado', 0.0)
+        categoria_nombre = analysis_data.get('categoria', '').strip()
+        descripcion = analysis_data.get('descripcion', '').strip()
+
+        # Si no se reconoció el producto, retornar error sin crear
+        if not nombre:
+            logger.warning("Producto no reconocido en la imagen")
             return Response(
-                {'error': 'La imagen no contiene nombre o código de producto válido.'},
+                {
+                    'error': 'No se pudo reconocer el producto en la imagen',
+                    'producto': None,
+                    'analysis': analysis_data
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Convertir a tipos correctos
-        try:
-            precio = float(precio_str) if precio_str else 0
-            cantidad = int(cantidad_str) if cantidad_str else 0
-        except (ValueError, TypeError):
-            precio = 0
-            cantidad = 0
+        # Generar código automático si no está disponible
+        codigo = f"AUTO-{image_file.name.split('.')[0][:10].upper()}"
 
-        # Crear producto
         try:
+            # Obtener o crear categoría
+            categoria = None
+            if categoria_nombre:
+                categoria, _ = Categoria.objects.get_or_create(nombre=categoria_nombre)
+
+            # Crear producto
             producto = Producto.objects.create(
                 nombre=nombre,
                 codigo=codigo,
-                precio=precio,
-                cantidad=cantidad
+                precio=float(precio) if precio else 0.0,
+                cantidad=0,  # Por defecto 0 hasta que se agregue stock
+                categoria=categoria
             )
+
+            logger.info(f"Producto creado. ID: {producto.id}, Nombre: {nombre}")
 
             # Guardar análisis con referencia al producto
             img_analysis = ImageAnalysis.objects.create(
@@ -233,15 +367,23 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
 
             return Response(
                 {
+                    'success': True,
+                    'message': f'Producto "{nombre}" creado exitosamente',
                     'producto': ProductoSerializer(producto).data,
                     'analysis': ImageAnalysisSerializer(img_analysis).data
                 },
                 status=status.HTTP_201_CREATED
             )
+            
         except Exception as e:
+            logger.error(f"Error creando producto: {str(e)}")
             return Response(
-                {'error': f'Error creando producto: {str(e)}'},
-                status=status.HTTP_400_BAD_REQUEST
+                {
+                    'error': f'Error creando producto en BD: {str(e)}',
+                    'producto': None,
+                    'analysis': analysis_data
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
     @action(detail=False, methods=['post'])

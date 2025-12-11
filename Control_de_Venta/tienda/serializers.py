@@ -52,7 +52,40 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 
 
 class ImageAnalysisSerializer(serializers.ModelSerializer):
+    """
+    Serializer mejorado para ImageAnalysis.
+    NUNCA devuelve campos null en analysis_result.
+    """
+    analysis_result = serializers.SerializerMethodField()
+    
     class Meta:
         model = ImageAnalysis
         fields = ["id", "user", "image", "analysis_result", "timestamp", "producto_created"]
-        read_only_fields = ["id", "timestamp", "analysis_result", "producto_created"]
+        read_only_fields = ["id", "timestamp", "producto_created"]
+    
+    def get_analysis_result(self, obj):
+        """
+        Retorna analysis_result con validación para evitar null.
+        Estructura garantizada:
+        {
+            'producto': str,
+            'precio_estimado': float,
+            'categoria': str,
+            'descripcion': str
+        }
+        """
+        result = obj.analysis_result or {}
+        
+        # Validar y establecer valores por defecto
+        cleaned_result = {
+            'producto': result.get('producto') or '',
+            'precio_estimado': float(result.get('precio_estimado', 0)) if result.get('precio_estimado') else 0.0,
+            'categoria': result.get('categoria') or '',
+            'descripcion': result.get('descripcion') or '',
+        }
+        
+        # Preservar campos adicionales si existen
+        if result.get('error'):
+            cleaned_result['error'] = result['error']
+        
+        return cleaned_result
