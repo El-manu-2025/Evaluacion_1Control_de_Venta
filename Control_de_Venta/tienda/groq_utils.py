@@ -98,9 +98,14 @@ Sé conciso, útil y directo. Responde en español."""
             last_error = e
             msg = str(e) or e.__class__.__name__
             # Log para diagnóstico en Railway (sin exponer secretos)
-            logger.warning(
-                "Groq chat error: %s: %s", e.__class__.__name__, msg
-            )
+            logger.warning("Groq chat error: %s: %s", e.__class__.__name__, msg)
+            cause = getattr(e, "__cause__", None) or getattr(e, "__context__", None)
+            if cause is not None:
+                logger.warning(
+                    "Groq chat root-cause: %s: %s",
+                    cause.__class__.__name__,
+                    str(cause) or repr(cause),
+                )
             is_connection_like = (
                 "connection" in msg.lower()
                 or "connect" in msg.lower()
@@ -115,12 +120,16 @@ Sé conciso, útil y directo. Responde en español."""
                 or e.__class__.__name__.lower() in {"timeoutexception", "readtimeout", "connecttimeout"}
             )
             if is_timeout_like:
+                # Incluir traceback para ver si fue connect/read timeout, TLS, etc.
+                logger.exception("Groq chat timeout (attempt %s)", attempt + 1)
                 return (
                     "Error al consultar Groq (chat): timeout. "
                     "Prueba subir GROQ_TIMEOUT_SECONDS (por ejemplo 25) en Railway y reintenta. "
                     f"Detalle: {msg}"
                 )
             if is_connection_like:
+                # Traceback ayuda a diferenciar DNS, SSL, refused, etc.
+                logger.exception("Groq chat connection error (attempt %s)", attempt + 1)
                 return (
                     "Error al consultar Groq (chat): no se pudo conectar con Groq. "
                     "Suele ser un problema temporal de red/egress/DNS en Railway (o timeout bajo). "
