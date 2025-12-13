@@ -16,9 +16,23 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+import os
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('Control_de_Venta.tienda.urls')),
+
+    # Healthcheck simple para Railway
+    path(
+        'healthz/',
+        lambda request: JsonResponse(
+            {
+                'ok': True,
+                'has_groq_chat': bool(os.getenv('GROQ_API_KEY_CHAT') or os.getenv('GROQ_API_KEY')),
+                'has_groq_vision': bool(os.getenv('GROQ_API_KEY_VISION') or os.getenv('GROQ_API_KEY')),
+            }
+        ),
+    ),
 
 ]

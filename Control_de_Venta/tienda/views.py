@@ -203,7 +203,8 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
 
         # Usar la función mejorada de análisis
         from .groq_utils import analyze_product_image_v2
-        analysis_result = analyze_product_image_v2(image_bytes, max_retries=2)
+        # En Railway es mejor fallar rápido que agotar timeouts del proxy (502).
+        analysis_result = analyze_product_image_v2(image_bytes, max_retries=0)
         
         # Log detallado para debugging
         logger.info(f"📊 Resultado del análisis: {analysis_result}")
