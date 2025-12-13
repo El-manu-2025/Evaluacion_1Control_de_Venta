@@ -102,6 +102,14 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         # Llamar a Groq
         ai_response = chat_with_groq(user_message, context=context, history=history_messages)
 
+        # Si Groq falló, no guardar el mensaje como si fuera respuesta válida.
+        # En su lugar, devolver 503 para que el frontend pueda manejar el error.
+        if isinstance(ai_response, str) and ai_response.strip().lower().startswith('error'):
+            return Response(
+                {'error': ai_response},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
         # Guardar en BD
         chat_msg = ChatMessage.objects.create(
             user=request.user,
