@@ -352,7 +352,8 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
                 codigo=codigo,
                 precio=float(precio) if precio else 0.0,
                 cantidad=0,  # Por defecto 0 hasta que se agregue stock
-                categoria=categoria
+                categoria=categoria,
+                descripcion=descripcion
             )
 
             logger.info(f"Producto creado. ID: {producto.id}, Nombre: {nombre}")
@@ -388,6 +389,7 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
         codigo = request.data.get('codigo', '').strip()
         precio = float(request.data.get('precio', 0))
         cantidad = int(request.data.get('cantidad', 0))
+        descripcion = request.data.get('descripcion', '').strip()
 
         if not nombre or not codigo:
             return Response(
@@ -400,7 +402,8 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
                 nombre=nombre,
                 codigo=codigo,
                 precio=precio,
-                cantidad=cantidad
+                cantidad=cantidad,
+                descripcion=descripcion
             )
             return Response(
                 ProductoSerializer(producto).data,
