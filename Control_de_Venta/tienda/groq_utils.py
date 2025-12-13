@@ -10,9 +10,10 @@ import base64
 from io import BytesIO
 from groq import Groq
 
-# APIs keys para cada modelo
-GROQ_API_KEY_CHAT = os.getenv('GROQ_API_KEY_CHAT', '')
-GROQ_API_KEY_VISION = os.getenv('GROQ_API_KEY_VISION', '')
+# API keys para cada modelo  
+GROQ_API_KEY_CHAT = os.getenv('GROQ_API_KEY_CHAT')
+GROQ_API_KEY_VISION = os.getenv('GROQ_API_KEY_VISION')
+GROQ_TIMEOUT_SECONDS = float(os.getenv('GROQ_TIMEOUT_SECONDS', '25'))
 
 # Modelos disponibles en Groq (Diciembre 2025)
 MODEL_CHAT = "llama-3.3-70b-versatile"  # Para chat y análisis
@@ -20,12 +21,15 @@ MODEL_VISION = "meta-llama/llama-4-maverick-17b-128e-instruct"  # Para visión (
 
 def get_groq_client_chat():
     """Retorna cliente Groq configurado para chat (Llama 3.3 70B)."""
-    return Groq(api_key=GROQ_API_KEY_CHAT)
+    api_key = GROQ_API_KEY_CHAT or os.getenv('GROQ_API_KEY')
+    # Groq() levanta excepción si api_key falta; esto se maneja en el caller.
+    return Groq(api_key=api_key, timeout=GROQ_TIMEOUT_SECONDS)
 
 
 def get_groq_client_vision():
     """Retorna cliente Groq configurado para visión (Llama 4 Maverick)."""
-    return Groq(api_key=GROQ_API_KEY_VISION)
+    api_key = GROQ_API_KEY_VISION or os.getenv('GROQ_API_KEY')
+    return Groq(api_key=api_key, timeout=GROQ_TIMEOUT_SECONDS)
 
 
 def chat_with_groq(user_message, context=None, history=None):
@@ -40,7 +44,14 @@ def chat_with_groq(user_message, context=None, history=None):
     Returns:
         str: Respuesta de Groq.
     """
-    client = get_groq_client_chat()
+    try:
+        client = get_groq_client_chat()
+    except Exception as e:
+        return (
+            "Error: Groq API key no configurada para chat. "
+            "Define GROQ_API_KEY_CHAT (o GROQ_API_KEY) en Railway. "
+            f"Detalle: {str(e)}"
+        )
     
     # Construir el prompt con contexto si se proporciona
     system_prompt = """Eres un asistente IA especializado en gestión de inventario y ventas.
@@ -83,7 +94,18 @@ def analyze_image_with_groq(image_bytes, prompt=None):
     Returns:
         str: Análisis de la imagen.
     """
-    client = get_groq_client_vision()
+    try:
+        client = get_groq_client_vision()
+    except Exception as e:
+        return json.dumps(
+            {
+                "error": (
+                    "Groq API key no configurada para visión. "
+                    "Define GROQ_API_KEY_VISION (o GROQ_API_KEY) en Railway. "
+                    f"Detalle: {str(e)}"
+                )
+            }
+        )
     
     # Convertir a base64
     image_b64 = base64.standard_b64encode(image_bytes).decode('utf-8')
@@ -140,7 +162,14 @@ def generate_stock_suggestions(productos_info):
     Returns:
         str: Sugerencias en texto.
     """
-    client = get_groq_client_chat()
+    try:
+        client = get_groq_client_chat()
+    except Exception as e:
+        return (
+            "Error: Groq API key no configurada para chat. "
+            "Define GROQ_API_KEY_CHAT (o GROQ_API_KEY) en Railway. "
+            f"Detalle: {str(e)}"
+        )
     
     prompt = f"""Basándote en los siguientes datos de inventario y ventas, sugiere qué productos deberían reordenarse:
 
@@ -177,7 +206,14 @@ def analyze_sales_trends(ventas_info):
     Returns:
         str: Análisis de tendencias.
     """
-    client = get_groq_client_chat()
+    try:
+        client = get_groq_client_chat()
+    except Exception as e:
+        return (
+            "Error: Groq API key no configurada para chat. "
+            "Define GROQ_API_KEY_CHAT (o GROQ_API_KEY) en Railway. "
+            f"Detalle: {str(e)}"
+        )
     
     prompt = f"""Analiza las siguientes tendencias de ventas y proporciona insights:
 
@@ -246,7 +282,20 @@ def analyze_product_image_v2(image_bytes, max_retries=2):
             "error": "La imagen excede el tamaño máximo (10MB)"
         }
     
-    client = get_groq_client_vision()
+    try:
+        client = get_groq_client_vision()
+    except Exception as e:
+        logger.error(f"Groq Vision no configurado: {str(e)}")
+        return {
+            "producto": "",
+            "precio_estimado": 0.0,
+            "categoria": "",
+            "descripcion": "No se pudo analizar (API key faltante)",
+            "error": (
+                "Groq API key no configurada para visión. "
+                "Define GROQ_API_KEY_VISION (o GROQ_API_KEY) en Railway."
+            ),
+        }
     
     # Convertir a base64
     try:
