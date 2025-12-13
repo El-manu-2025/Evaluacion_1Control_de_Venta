@@ -9,9 +9,6 @@ djangorestframework-simplejwt
 django-cors-headers
 groq
 pillow
-# python-magic-bin solo existe para Windows; en Linux/Mac usa python-magic
-python-magic-bin; platform_system == "Windows"
-python-magic; platform_system != "Windows"
 channels
 daphne
 channels-redis
