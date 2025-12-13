@@ -357,20 +357,15 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
 
             logger.info(f"Producto creado. ID: {producto.id}, Nombre: {nombre}")
 
-            # Guardar análisis con referencia al producto
-            img_analysis = ImageAnalysis.objects.create(
-                user=request.user,
-                image=image_file,
-                analysis_result=analysis_data,
-                producto_created=producto
-            )
+            # No persistir imagen ni registros de análisis (requisito: sin almacenamiento)
+            img_analysis = None
 
             return Response(
                 {
                     'success': True,
                     'message': f'Producto "{nombre}" creado exitosamente',
                     'producto': ProductoSerializer(producto).data,
-                    'analysis': ImageAnalysisSerializer(img_analysis).data
+                    'analysis': analysis_data
                 },
                 status=status.HTTP_201_CREATED
             )
