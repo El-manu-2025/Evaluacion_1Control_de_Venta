@@ -7,6 +7,7 @@ Usa dos modelos:
 import os
 import json
 import base64
+import time
 from io import BytesIO
 from groq import Groq
 
@@ -79,16 +80,49 @@ Sé conciso, útil y directo. Responde en español."""
     messages = history or []
     messages.append({"role": "user", "content": user_message})
     
-    try:
-        response = client.chat.completions.create(
-            model=MODEL_CHAT,
-            messages=[{"role": "system", "content": system_prompt}] + messages,
-            temperature=0.7,
-            max_tokens=1024,
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"Error al consultar Groq (chat): {str(e)}"
+    last_error = None
+    # Mitigar fallos transitorios de red (Railway/egress/DNS) sin alargar demasiado.
+    for attempt in range(2):
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_CHAT,
+                messages=[{"role": "system", "content": system_prompt}] + messages,
+                temperature=0.7,
+                max_tokens=1024,
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            last_error = e
+            msg = str(e) or e.__class__.__name__
+            is_connection_like = (
+                "connection" in msg.lower()
+                or "connect" in msg.lower()
+                or "dns" in msg.lower()
+                or e.__class__.__name__.lower() in {"apiconnectionerror", "connecterror"}
+            )
+            if is_connection_like and attempt == 0:
+                time.sleep(0.4)
+                continue
+            is_timeout_like = (
+                "timeout" in msg.lower()
+                or e.__class__.__name__.lower() in {"timeoutexception", "readtimeout", "connecttimeout"}
+            )
+            if is_timeout_like:
+                return (
+                    "Error al consultar Groq (chat): timeout. "
+                    "Prueba subir GROQ_TIMEOUT_SECONDS (por ejemplo 25) en Railway y reintenta. "
+                    f"Detalle: {msg}"
+                )
+            if is_connection_like:
+                return (
+                    "Error al consultar Groq (chat): no se pudo conectar con Groq. "
+                    "Suele ser un problema temporal de red/egress/DNS en Railway. "
+                    "Reintenta o revisa los logs del servicio. "
+                    f"Detalle: {msg}"
+                )
+            return f"Error al consultar Groq (chat): {msg}"
+
+    return f"Error al consultar Groq (chat): {str(last_error) if last_error else 'Error desconocido'}"
 
 
 def analyze_image_with_groq(image_bytes, prompt=None):
