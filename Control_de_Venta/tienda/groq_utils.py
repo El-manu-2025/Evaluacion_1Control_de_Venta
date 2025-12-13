@@ -15,10 +15,15 @@ from groq import Groq
 logger = logging.getLogger(__name__)
 
 # API keys para cada modelo  
-GROQ_API_KEY_CHAT = os.getenv('GROQ_API_KEY_CHAT')
-GROQ_API_KEY_VISION = os.getenv('GROQ_API_KEY_VISION')
-GROQ_TIMEOUT_SECONDS = float(os.getenv('GROQ_TIMEOUT_SECONDS', '15'))
-GROQ_MAX_RETRIES = int(os.getenv('GROQ_MAX_RETRIES', '0'))
+def _env_str(name: str, default: str = "") -> str:
+    val = os.getenv(name, default)
+    # Evitar errores de cabecera HTTP por espacios/nuevas líneas en tokens
+    return val.strip() if isinstance(val, str) else val
+
+GROQ_API_KEY_CHAT = _env_str('GROQ_API_KEY_CHAT')
+GROQ_API_KEY_VISION = _env_str('GROQ_API_KEY_VISION')
+GROQ_TIMEOUT_SECONDS = float(_env_str('GROQ_TIMEOUT_SECONDS', '15'))
+GROQ_MAX_RETRIES = int(_env_str('GROQ_MAX_RETRIES', '0'))
 
 # Modelos disponibles en Groq (Diciembre 2025)
 MODEL_CHAT = "llama-3.3-70b-versatile"  # Para chat y análisis
@@ -26,7 +31,7 @@ MODEL_VISION = "meta-llama/llama-4-maverick-17b-128e-instruct"  # Para visión (
 
 def get_groq_client_chat():
     """Retorna cliente Groq configurado para chat (Llama 3.3 70B)."""
-    api_key = GROQ_API_KEY_CHAT or os.getenv('GROQ_API_KEY')
+    api_key = GROQ_API_KEY_CHAT or _env_str('GROQ_API_KEY')
     # Groq() levanta excepción si api_key falta; esto se maneja en el caller.
     try:
         return Groq(api_key=api_key, timeout=GROQ_TIMEOUT_SECONDS, max_retries=GROQ_MAX_RETRIES)
@@ -37,7 +42,7 @@ def get_groq_client_chat():
 
 def get_groq_client_vision():
     """Retorna cliente Groq configurado para visión (Llama 4 Maverick)."""
-    api_key = GROQ_API_KEY_VISION or os.getenv('GROQ_API_KEY')
+    api_key = GROQ_API_KEY_VISION or _env_str('GROQ_API_KEY')
     try:
         return Groq(api_key=api_key, timeout=GROQ_TIMEOUT_SECONDS, max_retries=GROQ_MAX_RETRIES)
     except TypeError:
