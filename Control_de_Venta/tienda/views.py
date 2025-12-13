@@ -1,7 +1,7 @@
 # Importaciones necesarias de Django y modelos propios
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.timezone import now
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, F, DecimalField
 from django.db.models import ProtectedError
 from django.contrib import messages
 from .models import Producto, Cliente, Venta, VentaDetalle, ChatMessage, ImageAnalysis, Categoria
@@ -432,8 +432,8 @@ class AnalyticsViewSet(viewsets.ViewSet):
         ).annotate(
             total_units=Sum('detalles__cantidad'),
             total_sales=Sum(
-                models.F('detalles__cantidad') * models.F('detalles__precio_unitario'),
-                output_field=models.DecimalField()
+                F('detalles__cantidad') * F('detalles__precio_unitario'),
+                output_field=DecimalField()
             )
         ).order_by('fecha__date')
 
@@ -441,7 +441,7 @@ class AnalyticsViewSet(viewsets.ViewSet):
             venta__fecha__gte=start_date
         ).values('producto__nombre').annotate(
             cantidad=Sum('cantidad'),
-            ingresos=Sum(models.F('cantidad') * models.F('precio_unitario'), output_field=models.DecimalField())
+            ingresos=Sum(F('cantidad') * F('precio_unitario'), output_field=DecimalField())
         ).order_by('-cantidad')
 
         analytics_data = {
