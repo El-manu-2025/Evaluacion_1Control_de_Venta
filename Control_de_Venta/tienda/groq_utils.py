@@ -8,8 +8,11 @@ import os
 import json
 import base64
 import time
+import logging
 from io import BytesIO
 from groq import Groq
+
+logger = logging.getLogger(__name__)
 
 # API keys para cada modelo  
 GROQ_API_KEY_CHAT = os.getenv('GROQ_API_KEY_CHAT')
@@ -94,6 +97,10 @@ Sé conciso, útil y directo. Responde en español."""
         except Exception as e:
             last_error = e
             msg = str(e) or e.__class__.__name__
+            # Log para diagnóstico en Railway (sin exponer secretos)
+            logger.warning(
+                "Groq chat error: %s: %s", e.__class__.__name__, msg
+            )
             is_connection_like = (
                 "connection" in msg.lower()
                 or "connect" in msg.lower()
@@ -116,7 +123,8 @@ Sé conciso, útil y directo. Responde en español."""
             if is_connection_like:
                 return (
                     "Error al consultar Groq (chat): no se pudo conectar con Groq. "
-                    "Suele ser un problema temporal de red/egress/DNS en Railway. "
+                    "Suele ser un problema temporal de red/egress/DNS en Railway (o timeout bajo). "
+                    "Prueba subir GROQ_TIMEOUT_SECONDS (por ejemplo 25) y reintenta. "
                     "Reintenta o revisa los logs del servicio. "
                     f"Detalle: {msg}"
                 )

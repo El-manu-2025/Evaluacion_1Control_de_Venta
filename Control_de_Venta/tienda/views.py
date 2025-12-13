@@ -106,7 +106,7 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         # En su lugar, devolver 503 para que el frontend pueda manejar el error.
         if isinstance(ai_response, str) and ai_response.strip().lower().startswith('error'):
             return Response(
-                {'error': ai_response},
+                {'error': ai_response, 'code': 'GROQ_UNAVAILABLE'},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
