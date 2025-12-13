@@ -212,28 +212,19 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
         logger.info(f"  - Categoría: '{analysis_result.get('categoria')}'")
         logger.info(f"  - Descripción: '{analysis_result.get('descripcion')}'")
 
-        # Guardar análisis en BD
-        try:
-            img_analysis = ImageAnalysis.objects.create(
-                user=request.user,
-                image=image_file,
-                analysis_result=analysis_result
-            )
-            
-            logger.info(f"Análisis guardado. ID: {img_analysis.id}, Resultado: {analysis_result}")
-            
-            serializer = self.get_serializer(img_analysis)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-        except Exception as e:
-            logger.error(f"Error guardando análisis en BD: {str(e)}")
-            return Response(
-                {
-                    'error': 'Error guardando análisis en base de datos',
-                    'analysis_result': analysis_result
+        return Response(
+            {
+                "persisted": False,
+                "analysis_result": {
+                    "producto": analysis_result.get("producto") or "",
+                    "precio_estimado": float(analysis_result.get("precio_estimado") or 0.0),
+                    "categoria": analysis_result.get("categoria") or "",
+                    "descripcion": analysis_result.get("descripcion") or "",
+                    **({"error": analysis_result.get("error")} if analysis_result.get("error") else {}),
                 },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            },
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=['post'])
     def debug_analysis(self, request):

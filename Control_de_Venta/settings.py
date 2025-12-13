@@ -39,6 +39,12 @@ DEBUG = True
 
 ALLOWED_HOSTS =  ['*']
 
+FILE_UPLOAD_HANDLERS = [
+    'django.core.files.uploadhandler.MemoryFileUploadHandler',
+]
+FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('FILE_UPLOAD_MAX_MEMORY_SIZE', 15 * 1024 * 1024))
+DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv('DATA_UPLOAD_MAX_MEMORY_SIZE', 15 * 1024 * 1024))
+
 # Permitir todos los orígenes (para desarrollo)
 CORS_ALLOW_ALL_ORIGINS = True
 
