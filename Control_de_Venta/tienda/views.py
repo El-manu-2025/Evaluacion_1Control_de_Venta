@@ -40,6 +40,45 @@ class ProductoViewSet(viewsets.ModelViewSet):
     serializer_class = ProductoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+
+        # Mapeo básico de nombres
+        mapping = {
+            'name': 'nombre',
+            'code': 'codigo',
+            'stock': 'cantidad',
+            'price': 'precio',
+            'description': 'descripcion',
+        }
+        for src, dst in mapping.items():
+            if src in data and dst not in data:
+                data[dst] = data.get(src)
+
+        # Categoría: admitir 'category' o 'categoria' como id o nombre
+        categoria_val = data.get('category') or data.get('categoria')
+        if categoria_val is not None and not data.get('categoria') and not data.get('categoria_id'):
+            # Si es un dígito, tratar como id
+            try:
+                categoria_id = int(str(categoria_val))
+                data['categoria'] = categoria_id
+            except ValueError:
+                # Tratar como nombre: buscar/crear
+                categoria_obj, _ = Categoria.objects.get_or_create(nombre=str(categoria_val).strip())
+                data['categoria'] = categoria_obj.id
+
+        # Valores por defecto razonables si faltan
+        if 'cantidad' not in data:
+            data['cantidad'] = 0
+        if 'precio' not in data:
+            data['precio'] = 0
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
 class VentaViewSet(viewsets.ModelViewSet):
     queryset = Venta.objects.all().order_by("-fecha")
     serializer_class = VentaSerializer
