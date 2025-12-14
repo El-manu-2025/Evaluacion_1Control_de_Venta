@@ -553,6 +553,7 @@ def agregar_producto(request):
         cantidad = int(request.POST['cantidad'] or 0)
         precio = float(request.POST['precio'] or 0)
         categoria_id = request.POST.get('categoria_id') or None
+        descripcion = request.POST.get('descripcion', '').strip()
         
         # Si viene un id de producto, se actualiza; si no, se crea uno nuevo
         producto_id = request.POST.get('producto_id')
@@ -563,6 +564,7 @@ def agregar_producto(request):
             producto.cantidad = cantidad
             producto.precio = precio
             producto.categoria_id = categoria_id
+            producto.descripcion = descripcion
             producto.save()
 
             # Mensaje de actualización
@@ -574,7 +576,8 @@ def agregar_producto(request):
                 codigo=codigo,
                 cantidad=cantidad,
                 precio=precio,
-                categoria_id=categoria_id
+                categoria_id=categoria_id,
+                descripcion=descripcion
             )
             # Mensaje de creación
             messages.success(request, '✅ Producto agregado con éxito.')

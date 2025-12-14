@@ -22,6 +22,7 @@
               <th class="py-3 px-4 text-left">Nombre</th>
               <th class="py-3 px-4 text-left">Código</th>
               <th class="py-3 px-4 text-left">Categoría</th>
+              <th class="py-3 px-4 text-left">Descripción</th>
               <th class="py-3 px-4 text-left">Cantidad</th>
               <th class="py-3 px-4 text-left">Precio</th>
               <th class="py-3 px-4 text-left">Acciones</th>
@@ -40,6 +41,13 @@
                       <span class="text-gray-400 text-xs">Sin categoría</span>
                   {% endif %}
               </td>
+              <td class="py-2 px-4 text-gray-700">
+                  {% if producto.descripcion %}
+                      {{ producto.descripcion|truncatechars:120 }}
+                  {% else %}
+                      <span class="text-gray-400 text-xs">Sin descripción</span>
+                  {% endif %}
+              </td>
               <td class="py-2 px-4">{{ producto.cantidad }}</td>
               <td class="py-2 px-4">${{ producto.precio }}</td>
               <td class="py-2 px-4 space-x-2">
@@ -50,7 +58,7 @@
               </td>
           </tr>
       {% empty %}
-          <tr><td colspan="6" class="py-4 text-center text-gray-500">No hay productos</td></tr>
+          <tr><td colspan="7" class="py-4 text-center text-gray-500">No hay productos</td></tr>
       {% endfor %}
       </tbody>
   </table>
