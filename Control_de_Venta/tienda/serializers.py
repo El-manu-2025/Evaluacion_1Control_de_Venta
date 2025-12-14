@@ -13,6 +13,7 @@ class CategoriaSerializer(serializers.HyperlinkedModelSerializer):
         fields = ["url", "id", "nombre", "descripcion", "activa"]
 
 class ProductoSerializer(serializers.HyperlinkedModelSerializer):
+    categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), required=False, allow_null=True)
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
     
     class Meta:

@@ -72,6 +72,10 @@ class ProductoViewSet(viewsets.ModelViewSet):
             data['cantidad'] = 0
         if 'precio' not in data:
             data['precio'] = 0
+        # Autogenerar código si falta o viene vacío
+        if not data.get('codigo'):
+            import time
+            data['codigo'] = f"AUTO-{int(time.time())}"
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
