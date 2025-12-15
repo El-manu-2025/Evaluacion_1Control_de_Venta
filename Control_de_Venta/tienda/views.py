@@ -48,9 +48,13 @@ class ProductoViewSet(viewsets.ModelViewSet):
             try:
                 s = unicodedata.normalize('NFKD', s)
                 s = ''.join(c for c in s if not unicodedata.combining(c))
-                return s.lower()
+                s = s.strip().lower()
+                # eliminar separadores comunes para igualar camel/snake/kebab
+                for ch in [' ', '-', '_']:
+                    s = s.replace(ch, '')
+                return s
             except Exception:
-                return str(s).lower()
+                return str(s).strip().lower().replace(' ', '').replace('-', '').replace('_', '')
 
         def _find_key(candidates):
             keys = list(data.keys())
@@ -76,9 +80,19 @@ class ProductoViewSet(viewsets.ModelViewSet):
 
         # Descripción: soportar múltiples alias y posibles acentos/camelCase
         if 'descripcion' not in data:
-            desc_key = _find_key(['descripcion', 'descripción', 'description', 'detalle', 'detalle_producto', 'product_description', 'desc'])
+            desc_key = _find_key(['descripcion', 'descripción', 'description', 'detalle', 'detalle_producto', 'product_description', 'productDescription', 'desc'])
             if desc_key:
-                data['descripcion'] = data.get(desc_key)
+                data['descripcion'] = str(data.get(desc_key) or '').strip()
+            else:
+                # si viene dentro de un objeto 'analysis'/'analysis_result'
+                analysis = data.get('analysis') or data.get('analysis_result') or {}
+                if isinstance(analysis, dict):
+                    data['descripcion'] = str(
+                        analysis.get('descripcion')
+                        or analysis.get('descripción')
+                        or analysis.get('description')
+                        or ''
+                    ).strip()
 
         # Categoría: admitir 'category' o 'categoria' como id o nombre
         categoria_val = data.get('category') or data.get('categoria')
@@ -101,6 +115,9 @@ class ProductoViewSet(viewsets.ModelViewSet):
         if not data.get('codigo'):
             import time
             data['codigo'] = f"AUTO-{int(time.time())}"
+
+        # Log de depuración mínimo
+        logger.info(f"Creando producto con campos: nombre='{data.get('nombre')}', codigo='{data.get('codigo')}', cantidad='{data.get('cantidad')}', precio='{data.get('precio')}', categoria='{data.get('categoria')}', descripcion.len={len(str(data.get('descripcion') or ''))}")
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
