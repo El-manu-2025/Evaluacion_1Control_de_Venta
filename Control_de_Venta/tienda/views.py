@@ -7,6 +7,7 @@ from django.contrib import messages
 from .models import Producto, Cliente, Venta, VentaDetalle, ChatMessage, ImageAnalysis, Categoria
 from django.db import transaction
 import re
+import unicodedata
 import json
 import logging
 from datetime import timedelta
@@ -43,6 +44,23 @@ class ProductoViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
 
+        def _normalize(s: str) -> str:
+            try:
+                s = unicodedata.normalize('NFKD', s)
+                s = ''.join(c for c in s if not unicodedata.combining(c))
+                return s.lower()
+            except Exception:
+                return str(s).lower()
+
+        def _find_key(candidates):
+            keys = list(data.keys())
+            for cand in candidates:
+                cand_n = _normalize(cand)
+                for k in keys:
+                    if _normalize(k) == cand_n:
+                        return k
+            return None
+
         # Mapeo básico de nombres
         mapping = {
             'name': 'nombre',
@@ -52,8 +70,15 @@ class ProductoViewSet(viewsets.ModelViewSet):
             'description': 'descripcion',
         }
         for src, dst in mapping.items():
-            if src in data and dst not in data:
-                data[dst] = data.get(src)
+            key = _find_key([src])
+            if key and dst not in data:
+                data[dst] = data.get(key)
+
+        # Descripción: soportar múltiples alias y posibles acentos/camelCase
+        if 'descripcion' not in data:
+            desc_key = _find_key(['descripcion', 'descripción', 'description', 'detalle', 'detalle_producto', 'product_description', 'desc'])
+            if desc_key:
+                data['descripcion'] = data.get(desc_key)
 
         # Categoría: admitir 'category' o 'categoria' como id o nombre
         categoria_val = data.get('category') or data.get('categoria')
