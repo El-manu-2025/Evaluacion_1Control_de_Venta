@@ -6,8 +6,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+import logging
+import time
 
 from .models import Cliente
+import secrets
+import string
+import logging
 
 
 def _user_role(user: User) -> str:
@@ -19,24 +24,51 @@ def _user_role(user: User) -> str:
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
-    """Registra un cliente: crea User + Cliente y retorna tokens + role."""
+    """Registra un cliente (User + Cliente) y retorna tokens + role.
+    Acepta: correo/email, nombre/name (opcional), username (opcional), password.
+    """
     email = (request.data.get('correo') or request.data.get('email') or '').strip()
     nombre = (request.data.get('nombre') or request.data.get('name') or '').strip()
+    username_in = (request.data.get('username') or '').strip()
     password = (request.data.get('password') or '').strip()
 
     if not email or not password:
         return Response({'error': 'correo y password son requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
-    username = email.lower()
+    # Validación mínima de contraseña
+    if len(password) < 8:
+        return Response(
+            {
+                'error': 'La contraseña debe tener al menos 8 caracteres',
+                'field': 'password',
+                'min_length': 8,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    username = (username_in or email).lower()
     if User.objects.filter(username=username).exists():
-        return Response({'error': 'Usuario ya existe'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Usuario ya existe', 'field': 'username'}, status=status.HTTP_409_CONFLICT)
 
-    user = User.objects.create_user(username=username, email=email, password=password, first_name=nombre[:30])
+    try:
+        user = User.objects.create_user(username=username, email=email, password=password, first_name=nombre[:30])
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Error creando usuario: {e}")
+        return Response({'error': 'No se pudo crear el usuario'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    # Crear Cliente asociado
-    Cliente.objects.get_or_create(rut=username[:12], defaults={'nombre': nombre or username, 'correo': email})
+    # Crear Cliente asociado con RUT numérico válido (10 dígitos)
+    try:
+        rut = ''.join(secrets.choice(string.digits) for _ in range(10))
+        # Garantizar unicidad por si acaso
+        for _ in range(5):
+            if not Cliente.objects.filter(rut=rut).exists():
+                break
+            rut = ''.join(secrets.choice(string.digits) for _ in range(10))
+        Cliente.objects.create(rut=rut, nombre=nombre or username, correo=email)
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Error creando Cliente asociado: {e}")
+        # Continuar: el login funciona aunque no se cree el registro de Cliente.
 
-    # Generar tokens
     refresh = RefreshToken.for_user(user)
     role = _user_role(user)
     return Response({'access': str(refresh.access_token), 'refresh': str(refresh), 'role': role}, status=status.HTTP_201_CREATED)
@@ -52,7 +84,12 @@ def login(request):
         return Response({'error': 'usuario/correo y password requeridos'}, status=status.HTTP_400_BAD_REQUEST)
 
     username = identifier.lower()
-    user = authenticate(username=username, password=password)
+    start = time.monotonic()
+    try:
+        user = authenticate(username=username, password=password)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Auth error: {e}")
+        return Response({'error': 'Servicio no disponible'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
     if not user:
         # Intento adicional: si enviaron email distinto del username, buscarlo
         try:
@@ -64,6 +101,9 @@ def login(request):
 
     if not user:
         return Response({'error': 'Credenciales inválidas'}, status=status.HTTP_401_UNAUTHORIZED)
+    dur = (time.monotonic() - start)
+    if dur > 5:
+        logging.getLogger(__name__).warning(f"Login slow: {dur:.2f}s for user {username}")
 
     refresh = RefreshToken.for_user(user)
     role = _user_role(user)

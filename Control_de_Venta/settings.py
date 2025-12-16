@@ -232,7 +232,11 @@ else:
                 'PASSWORD': DB_PASSWORD,
                 'HOST': DB_HOST,
                 'PORT': str(DB_PORT),
-                'OPTIONS': {'sslmode': 'require'},
+                'OPTIONS': {
+                    'sslmode': 'require',
+                    # Fail fast if DB is unreachable (seconds)
+                    'connect_timeout': 5,
+                },
             }
         }
     else:
@@ -246,7 +250,8 @@ else:
 
 # Default connection age (0 = close per request). Adjust if you need pooling.
 if DATABASES.get('default', {}).get('ENGINE') == 'django.db.backends.postgresql':
-    DATABASES['default'].setdefault('CONN_MAX_AGE', 0)
+    # Keep DB connections alive to avoid handshake latency on every request
+    DATABASES['default']['CONN_MAX_AGE'] = 300
 
 
 # Password validation
