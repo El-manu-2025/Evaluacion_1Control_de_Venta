@@ -2,7 +2,7 @@ from django.urls import path, include
 from . import views
 from rest_framework import routers 
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from .auth_views import register, login
+from .auth_views import register, login, me
 
 router = routers.DefaultRouter()
 router.register(r"users", views.UserViewSet)
@@ -20,6 +20,7 @@ urlpatterns = [
     # Auth (custom role-aware)
     path('api/auth/register', register, name='auth_register'),
     path('api/auth/login', login, name='auth_login'),
+    path('api/auth/me', me, name='auth_me'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
