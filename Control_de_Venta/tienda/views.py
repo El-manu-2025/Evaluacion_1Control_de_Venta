@@ -11,6 +11,8 @@ import unicodedata
 import json
 import logging
 from datetime import timedelta
+import secrets
+import string
 
 from django.contrib.auth.models import Group, User
 from rest_framework import permissions, viewsets, status
@@ -25,6 +27,47 @@ from .groq_utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Utilidades para generar códigos cortos base36 únicos
+def _to_base36(num: int) -> str:
+    alphabet = string.digits + string.ascii_uppercase
+    if num == 0:
+        return '0'
+    out = []
+    while num:
+        num, rem = divmod(num, 36)
+        out.append(alphabet[rem])
+    return ''.join(reversed(out))
+
+def generate_code(prefix: str = 'SKU', length: int = 6) -> str:
+    """Genera un código único con prefijo y sufijo base36 compacto.
+    length controla los últimos dígitos base36 usados.
+    """
+    for _ in range(10):
+        n = secrets.randbits(48)  # suficiente entropía
+        b36 = _to_base36(n)
+        code = f"{prefix}-{b36[-length:]}".upper()
+        if not Producto.objects.filter(codigo=code).exists():
+            return code
+    # Fallback con tiempo si hay colisiones improbables
+    from time import time
+    return f"{prefix}-{_to_base36(int(time()))}".upper()
+
+def derive_prefix_from_category_name(name: str, default: str = 'SKU') -> str:
+    """Deriva un prefijo de categoría: primeras 3 letras A-Z en mayúsculas.
+    Elimina acentos y caracteres no alfabéticos.
+    """
+    if not name:
+        return default
+    try:
+        s = unicodedata.normalize('NFKD', name)
+        s = ''.join(c for c in s if not unicodedata.combining(c))
+        s = ''.join(ch for ch in s.upper() if 'A' <= ch <= 'Z')
+        if not s:
+            return default
+        return (s[:3] if len(s) >= 3 else s)
+    except Exception:
+        return default
 
 class CategoriaViewSet(viewsets.ModelViewSet):
     queryset = Categoria.objects.all().order_by("nombre")
@@ -113,8 +156,17 @@ class ProductoViewSet(viewsets.ModelViewSet):
             data['precio'] = 0
         # Autogenerar código si falta o viene vacío
         if not data.get('codigo'):
-            import time
-            data['codigo'] = f"AUTO-{int(time.time())}"
+            # Prefijo por categoría si disponible
+            prefix = 'SKU'
+            try:
+                cat_id = data.get('categoria')
+                if cat_id:
+                    cat_obj = Categoria.objects.filter(id=cat_id).first()
+                    if cat_obj:
+                        prefix = derive_prefix_from_category_name(cat_obj.nombre, default='SKU')
+            except Exception:
+                pass
+            data['codigo'] = generate_code(prefix, length=6)
 
         # Log de depuración mínimo
         logger.info(f"Creando producto con campos: nombre='{data.get('nombre')}', codigo='{data.get('codigo')}', cantidad='{data.get('cantidad')}', precio='{data.get('precio')}', categoria='{data.get('categoria')}', descripcion.len={len(str(data.get('descripcion') or ''))}")
@@ -124,6 +176,17 @@ class ProductoViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def precio(self, request):
+        """Consulta rápida de precio por código (solo lectura)."""
+        codigo = (request.GET.get('codigo') or '').strip()
+        if not codigo:
+            return Response({'error': 'codigo requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        prod = Producto.objects.filter(codigo=codigo).first()
+        if not prod:
+            return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+        return Response({'codigo': prod.codigo, 'nombre': prod.nombre, 'precio': float(prod.precio)}, status=status.HTTP_200_OK)
 
 class VentaViewSet(viewsets.ModelViewSet):
     queryset = Venta.objects.all().order_by("-fecha")
@@ -423,7 +486,11 @@ class ImageAnalysisViewSet(viewsets.ModelViewSet):
             )
 
         # Generar código automático si no está disponible
-        codigo = f"AUTO-{image_file.name.split('.')[0][:10].upper()}"
+            # Prefijo por categoría si disponible
+            prefix = 'IMG'
+            if categoria_nombre:
+                prefix = derive_prefix_from_category_name(categoria_nombre, default='IMG')
+            codigo = generate_code(prefix, length=6)
 
         try:
             # Obtener o crear categoría
