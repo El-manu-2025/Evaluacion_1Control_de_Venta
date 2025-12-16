@@ -21,6 +21,28 @@ def _user_role(user: User) -> str:
     return 'client'
 
 
+def _generate_unique_username(base: str) -> str:
+    """Return an available username based on base, appending a short suffix if needed."""
+    base = (base or 'user').lower()[:140]  # leave room for suffix
+    candidate = base
+    if not User.objects.filter(username=candidate).exists():
+        return candidate
+    # Try numeric suffixes first
+    for i in range(1, 100):
+        candidate = f"{base}-{i}"
+        if not User.objects.filter(username=candidate).exists():
+            return candidate
+    # Fallback: random 4 chars suffix
+    for _ in range(20):
+        suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(4))
+        candidate = f"{base}-{suffix}"
+        if not User.objects.filter(username=candidate).exists():
+            return candidate
+    # In worst case, return base with long random
+    suffix = ''.join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(8))
+    return f"{base}-{suffix}"
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register(request):
@@ -46,9 +68,13 @@ def register(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    username = (username_in or email).lower()
-    if User.objects.filter(username=username).exists():
-        return Response({'error': 'Usuario ya existe', 'field': 'username'}, status=status.HTTP_409_CONFLICT)
+    # Si el email ya está registrado, avisar conflicto explícito
+    if User.objects.filter(email=email).exists():
+        return Response({'error': 'El correo ya está registrado', 'field': 'email'}, status=status.HTTP_409_CONFLICT)
+
+    # Username base a partir del input o del email
+    username_base = (username_in or email).split('@')[0].lower()
+    username = _generate_unique_username(username_base)
 
     try:
         user = User.objects.create_user(username=username, email=email, password=password, first_name=nombre[:30])
@@ -71,7 +97,7 @@ def register(request):
 
     refresh = RefreshToken.for_user(user)
     role = _user_role(user)
-    return Response({'access': str(refresh.access_token), 'refresh': str(refresh), 'role': role}, status=status.HTTP_201_CREATED)
+    return Response({'access': str(refresh.access_token), 'refresh': str(refresh), 'role': role, 'username': user.username}, status=status.HTTP_201_CREATED)
 
 
 @api_view(['POST'])
