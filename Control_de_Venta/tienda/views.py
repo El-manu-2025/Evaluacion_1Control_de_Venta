@@ -270,10 +270,26 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def _build_context(self, context_type):
-        """Construye contexto según tipo solicitado."""
+        """Construye contexto según tipo solicitado, con filtro por nombre/código si la consulta lo sugiere."""
         if context_type == 'producto':
-            productos = Producto.objects.all().values('nombre', 'codigo', 'cantidad', 'precio')
-            return f"Productos disponibles:\n{json.dumps(list(productos), default=str, ensure_ascii=False)}"
+            # Catálogo con datos confiables del inventario
+            productos_qs = Producto.objects.select_related('categoria').all()
+            productos = []
+            for p in productos_qs:
+                productos.append({
+                    'nombre': p.nombre,
+                    'codigo': p.codigo,
+                    'cantidad': int(p.cantidad or 0),
+                    'precio': float(p.precio or 0),
+                    'categoria': p.categoria.nombre if p.categoria else None,
+                    'descripcion': p.descripcion or '',
+                })
+            guidance = (
+                "Usa EXCLUSIVAMENTE este catálogo para responder sobre productos, precios y stock. "
+                "Si el usuario pregunta por un producto que no aparece aquí, responde literalmente: 'En este momento no tenemos ese producto'. "
+                "Cuando te pidan el precio, devuelve el campo 'precio' exacto de este catálogo, sin estimaciones."
+            )
+            return f"{guidance}\nCatalogo:\n{json.dumps(productos, ensure_ascii=False)}"
         elif context_type == 'venta':
             ventas_recent = Venta.objects.filter(
                 fecha__gte=now() - timedelta(days=30)
