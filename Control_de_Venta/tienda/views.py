@@ -339,9 +339,11 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
             if not text:
                 return None
             low = text.lower()
-            asks_price = 'precio' in low or '$' in low or 'cuesta' in low
-            asks_stock = 'stock' in low or 'cantidad' in low or 'tienen' in low
-            if not (asks_price or asks_stock):
+            asks_price = ('precio' in low) or ('$' in low) or ('cuesta' in low) or ('valor' in low) or ('cuánto' in low) or ('cuanto' in low)
+            asks_stock = ('stock' in low) or ('cantidad' in low) or ('tienen' in low) or ('hay' in low) or ('disponible' in low) or ('disponibilidad' in low)
+            # Si el usuario pregunta por existencia sin precio/stock explícito, igual intentamos resolver
+            triggers = asks_price or asks_stock or ('producto' in low) or ('tiene' in low) or ('tienen' in low)
+            if not triggers:
                 return None
 
             qs = Producto.objects.select_related('categoria').all()
@@ -357,15 +359,16 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                         parts.append(f"Stock disponible: {int(p.cantidad)} unidades.")
                     return " ".join(parts) or f"{p.nombre}: precio ${float(p.precio):.2f}, stock {int(p.cantidad)}."
 
-            # Filtro por nombre usando tokens
+            # Filtro por nombre usando tokens (OR para ser menos estricto)
             tokens = [t for t in re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+", text) if len(t) >= 2]
             name_tokens = [t for t in tokens if not t.isdigit()]
             candidates = []
             if name_tokens:
-                q_obj = Q()
+                q_or = Q()
                 for t in name_tokens:
-                    q_obj &= Q(nombre__icontains=t)
-                candidates = list(qs.filter(q_obj)[:20]) if q_obj else []
+                    q_or |= Q(nombre__icontains=t)
+                if q_or:
+                    candidates = list(qs.filter(q_or)[:50])
 
             if not candidates:
                 return "En este momento no tenemos ese producto"
@@ -385,7 +388,10 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                 parts.append(f"El precio de {best.nombre} es ${float(best.precio):.2f}.")
             if asks_stock:
                 parts.append(f"Stock disponible: {int(best.cantidad)} unidades.")
-            return " ".join(parts) or f"{best.nombre}: precio ${float(best.precio):.2f}, stock {int(best.cantidad)}."
+            if not parts:
+                # Pregunta genérica sobre existencia
+                parts.append(f"Tenemos {best.nombre}. Precio ${float(best.precio):.2f} y stock {int(best.cantidad)}.")
+            return " ".join(parts)
         except Exception:
             return None
 
@@ -393,7 +399,8 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         """Construye contexto según tipo solicitado, con filtro por nombre/código si la consulta lo sugiere."""
         if context_type == 'producto':
             # Catálogo con datos confiables del inventario
-            productos_qs = Producto.objects.select_related('categoria').all()
+            all_qs = Producto.objects.select_related('categoria').all()
+            productos_qs = all_qs
             # Filtro básico según la consulta: intenta por código y nombre parcial
             query = (user_message or '').strip()
             if query:
@@ -407,6 +414,9 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                         q_obj |= Q(nombre__icontains=t)
                 if q_obj:
                     productos_qs = productos_qs.filter(q_obj)
+                # Si el filtro deja vacío, no enviar catálogo vacío: usa el completo
+                if not productos_qs.exists():
+                    productos_qs = all_qs
             productos = []
             for p in productos_qs:
                 productos.append({
