@@ -15,10 +15,28 @@ class CategoriaSerializer(serializers.HyperlinkedModelSerializer):
 class ProductoSerializer(serializers.HyperlinkedModelSerializer):
     categoria = serializers.PrimaryKeyRelatedField(queryset=Categoria.objects.all(), required=False, allow_null=True)
     categoria_nombre = serializers.CharField(source='categoria.nombre', read_only=True)
+    # Alias de solo lectura para compatibilidad con app móvil
+    name = serializers.CharField(source='nombre', read_only=True)
+    code = serializers.CharField(source='codigo', read_only=True)
+    stock = serializers.IntegerField(source='cantidad', read_only=True)
+    price = serializers.SerializerMethodField()
     
     class Meta:
         model = Producto
-        fields = ["url", "id", "nombre", "codigo", "cantidad", "precio", "categoria", "categoria_nombre", "descripcion"]
+        fields = [
+            "url", "id",
+            # Campos originales
+            "nombre", "codigo", "cantidad", "precio", "categoria", "categoria_nombre", "descripcion",
+            # Aliases para clientes móviles
+            "name", "code", "stock", "price",
+        ]
+
+    def get_price(self, obj):
+        # Mantener el mismo formato que "precio" (string con 2 decimales)
+        try:
+            return f"{obj.precio:.2f}"
+        except Exception:
+            return str(obj.precio)
 
 class VentaDetalleSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
