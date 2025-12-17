@@ -71,15 +71,14 @@ def chat_with_groq(user_message, context=None, history=None):
         )
     
     # Construir el prompt con contexto si se proporciona
-    system_prompt = """Eres un asistente IA especializado en gestión de inventario y ventas.
-Tu rol es ayudar a usuarios a:
-- Consultar información sobre productos (precio, stock)
-- Analizar tendencias de ventas
-- Sugerir niveles de reorden de stock
-- Responder preguntas sobre el negocio
-- Identificar productos a partir de descripciones
-
-Sé conciso, útil y directo. Responde en español."""
+    system_prompt = """Eres un asistente IA especializado en inventario y ventas.
+Reglas estrictas:
+- Responde SIEMPRE en español, de forma breve y directa.
+- Si se proporciona un catálogo en el contexto, RESPONDE EXCLUSIVAMENTE usando esos datos.
+- Si el producto consultado NO está en el catálogo, di literalmente: "En este momento no tenemos ese producto".
+- Para precios, usa el campo exacto "precio" del catálogo sin estimaciones.
+- No inventes marcas, precios, variantes ni stock.
+"""
     
     if context:
         system_prompt += f"\n\nContexto actual del negocio:\n{context}"
@@ -95,8 +94,8 @@ Sé conciso, útil y directo. Responde en español."""
             response = client.chat.completions.create(
                 model=MODEL_CHAT,
                 messages=[{"role": "system", "content": system_prompt}] + messages,
-                temperature=0.7,
-                max_tokens=1024,
+                temperature=0.2,
+                max_tokens=768,
             )
             return response.choices[0].message.content
         except Exception as e:

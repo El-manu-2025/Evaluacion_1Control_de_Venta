@@ -188,6 +188,55 @@ class ProductoViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
         return Response({'codigo': prod.codigo, 'nombre': prod.nombre, 'precio': float(prod.precio)}, status=status.HTTP_200_OK)
 
+    @action(detail=False, methods=['get'], permission_classes=[permissions.IsAuthenticated])
+    def precio_por_nombre(self, request):
+        """Consulta rápida de precio por nombre EXACTO. Evita ambigüedades del buscador.
+        Uso: GET /api/productos/precio_por_nombre?nombre=SanDisk%20USB
+        """
+        nombre = (request.GET.get('nombre') or '').strip()
+        categoria_q = (request.GET.get('categoria') or request.GET.get('category') or '').strip()
+        if not nombre:
+            return Response({'error': 'nombre requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = Producto.objects.all()
+        # Filtro por categoría opcional (id o nombre)
+        if categoria_q:
+            try:
+                cat_id = int(categoria_q)
+                qs = qs.filter(categoria_id=cat_id)
+            except ValueError:
+                qs = qs.filter(categoria__nombre__iexact=categoria_q)
+
+        # 1) Coincidencia exacta (insensible a mayúsculas)
+        prod = qs.filter(nombre__iexact=nombre).order_by('-id').first()
+        if prod:
+            return Response({'nombre': prod.nombre, 'codigo': prod.codigo, 'precio': float(prod.precio)}, status=status.HTTP_200_OK)
+
+        # 2) Coincidencia parcial
+        similar_qs = list(qs.filter(nombre__icontains=nombre)[:20])
+        # 3) Tokenizar y exigir que contenga todas las palabras (mejor para nombres largos)
+        tokens = [t for t in re.split(r"\s+", nombre) if t]
+        if tokens:
+            qs_tokens = qs
+            for t in tokens:
+                qs_tokens = qs_tokens.filter(nombre__icontains=t)
+            token_matches = list(qs_tokens[:20])
+        else:
+            token_matches = []
+
+        candidates = token_matches or similar_qs
+        if not candidates:
+            return Response({'error': 'Producto no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Elegir el más parecido por distancia de longitud y preferir más reciente
+        def score(p):
+            try:
+                return abs(len(p.nombre) - len(nombre))
+            except Exception:
+                return 9999
+        candidates.sort(key=lambda p: (score(p), -p.id))
+        best = candidates[0]
+        return Response({'nombre': best.nombre, 'codigo': best.codigo, 'precio': float(best.precio)}, status=status.HTTP_200_OK)
+
 class VentaViewSet(viewsets.ModelViewSet):
     queryset = Venta.objects.all().order_by("-fecha")
     serializer_class = VentaSerializer
@@ -231,8 +280,20 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+        # Respuesta determinista desde inventario (sin IA) si la pregunta es de precio/stock
+        inv_answer = self._try_inventory_answer(user_message)
+        if inv_answer:
+            chat_msg = ChatMessage.objects.create(
+                user=request.user,
+                user_message=user_message,
+                ai_response=inv_answer,
+                context_type=context_type
+            )
+            serializer = self.get_serializer(chat_msg)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
         # Obtener contexto según tipo (productos, ventas, etc)
-        context = self._build_context(context_type)
+        context = self._build_context(context_type, user_message)
 
         # Obtener últimos 5 mensajes como historial
         history = list(
@@ -269,11 +330,83 @@ class ChatMessageViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(chat_msg)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    def _build_context(self, context_type):
+    def _try_inventory_answer(self, user_message: str):
+        """Devuelve una respuesta basada en la BD si la consulta pide precio/stock.
+        Si no identifica producto con confianza, retorna None y se usa IA.
+        """
+        try:
+            text = (user_message or '').strip()
+            if not text:
+                return None
+            low = text.lower()
+            asks_price = 'precio' in low or '$' in low or 'cuesta' in low
+            asks_stock = 'stock' in low or 'cantidad' in low or 'tienen' in low
+            if not (asks_price or asks_stock):
+                return None
+
+            qs = Producto.objects.select_related('categoria').all()
+            # Buscar por código explícito (prefijo-XXXX o alfanumérico largo)
+            code_match = re.findall(r"[A-Za-z]{2,}-[A-Za-z0-9]{3,}|[A-Z0-9]{4,}", text)
+            for c in code_match:
+                p = qs.filter(codigo__iexact=c).first()
+                if p:
+                    parts = []
+                    if asks_price:
+                        parts.append(f"El precio de {p.nombre} es ${float(p.precio):.2f}.")
+                    if asks_stock:
+                        parts.append(f"Stock disponible: {int(p.cantidad)} unidades.")
+                    return " ".join(parts) or f"{p.nombre}: precio ${float(p.precio):.2f}, stock {int(p.cantidad)}."
+
+            # Filtro por nombre usando tokens
+            tokens = [t for t in re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+", text) if len(t) >= 2]
+            name_tokens = [t for t in tokens if not t.isdigit()]
+            candidates = []
+            if name_tokens:
+                q_obj = Q()
+                for t in name_tokens:
+                    q_obj &= Q(nombre__icontains=t)
+                candidates = list(qs.filter(q_obj)[:20]) if q_obj else []
+
+            if not candidates:
+                return "En este momento no tenemos ese producto"
+
+            # Elegir el más parecido por cantidad de tokens coincidentes y recencia
+            def score(p):
+                try:
+                    hits = sum(1 for t in name_tokens if t.lower() in p.nombre.lower())
+                    return (-hits, -p.id)
+                except Exception:
+                    return (0, 0)
+
+            candidates.sort(key=score)
+            best = candidates[0]
+            parts = []
+            if asks_price:
+                parts.append(f"El precio de {best.nombre} es ${float(best.precio):.2f}.")
+            if asks_stock:
+                parts.append(f"Stock disponible: {int(best.cantidad)} unidades.")
+            return " ".join(parts) or f"{best.nombre}: precio ${float(best.precio):.2f}, stock {int(best.cantidad)}."
+        except Exception:
+            return None
+
+    def _build_context(self, context_type, user_message: str = ""):
         """Construye contexto según tipo solicitado, con filtro por nombre/código si la consulta lo sugiere."""
         if context_type == 'producto':
             # Catálogo con datos confiables del inventario
             productos_qs = Producto.objects.select_related('categoria').all()
+            # Filtro básico según la consulta: intenta por código y nombre parcial
+            query = (user_message or '').strip()
+            if query:
+                q_obj = Q()
+                # códigos
+                for c in re.findall(r"[A-Za-z]{2,}-[A-Za-z0-9]{3,}|[A-Z0-9]{4,}", query):
+                    q_obj |= Q(codigo__iexact=c) | Q(codigo__icontains=c)
+                # nombres
+                for t in re.findall(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]+", query):
+                    if len(t) >= 2 and not t.isdigit():
+                        q_obj |= Q(nombre__icontains=t)
+                if q_obj:
+                    productos_qs = productos_qs.filter(q_obj)
             productos = []
             for p in productos_qs:
                 productos.append({
